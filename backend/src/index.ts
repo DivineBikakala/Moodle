@@ -17,6 +17,10 @@ app.use(express.urlencoded({ extended: true })); // Parser les formulaires
 
 // Import des routes
 import authRoutes from './routes/auth.routes';
+import courseRoutes from './routes/course.routes';
+import { resourceRoutes } from './routes/resource.routes';
+import enrollmentRoutes from './routes/enrollment.routes';
+import { uploadRoutes } from './routes/upload.routes';
 
 // Routes de test
 app.get('/health', (_req, res) => {
@@ -33,9 +37,12 @@ app.get('/', (_req, res) => {
 
 // Routes API
 app.use('/api/auth', authRoutes);
+app.use('/api/courses', courseRoutes);
+app.use('/api/courses', resourceRoutes); // resource routes utilisent /:id/resources
+app.use('/api/courses', uploadRoutes); // upload routes utilisent /:id/upload
+app.use('/api', enrollmentRoutes); // enrollment routes utilisent /courses/:id/enroll et /my-courses
 
 // TODO: Ajouter d'autres routes ici
-// app.use('/api/courses', courseRoutes);
 // app.use('/api/resources', resourceRoutes);
 // etc.
 
@@ -62,4 +69,3 @@ const startServer = async () => {
 
 // Démarrer le serveur
 startServer();
-

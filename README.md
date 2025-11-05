@@ -256,7 +256,15 @@ Pour plus de détails, consultez `DEMARRAGE.md` et `SETUP.md`.
 - **Authentification JWT complète** ⭐
 - **Middlewares de sécurité (authenticate, isTeacher, isStudent)** ⭐
 - **Hash des mots de passe avec bcrypt** ⭐
-- **2 utilisateurs de test créés** ⭐
+- **Routes CRUD complètes (Cours, Ressources, Inscriptions)** ⭐
+- **Validation express-validator** ⭐
+- **Upload de fichiers vers AWS S3** ⭐
+- **URLs signées pour téléchargement sécurisé** ⭐
+- **16 endpoints API fonctionnels** ⭐
+- **Frontend Teacher complet (auth, CRUD cours, upload)** ⭐
+- **Frontend Student complet (auth, inscription, téléchargement)** ⭐
+- **Interface moderne et responsive** ⭐
+- **Plus de 1500 lignes de code frontend** ⭐
 - Documentation complète
 
 ### 🚧 Prochaines Étapes (Roadmap)
@@ -274,27 +282,27 @@ Pour plus de détails, consultez `DEMARRAGE.md` et `SETUP.md`.
 - [x] Middleware d'authentification
 - [x] Middleware de gestion des rôles (teacher/student)
 
-**Phase 3 : API REST Complète (Priorité MOYENNE)**
-- [ ] Routes CRUD pour les cours (enseignants)
-- [ ] Routes de gestion des ressources
-- [ ] Routes d'inscription aux cours (étudiants)
-- [ ] Routes de récupération des cours inscrits
-- [ ] Validation des données avec express-validator
+**Phase 3 : API REST Complète (✅ COMPLÉTÉE)**
+- [x] Routes CRUD pour les cours (enseignants)
+- [x] Routes de gestion des ressources
+- [x] Routes d'inscription aux cours (étudiants)
+- [x] Routes de récupération des cours inscrits
+- [x] Validation des données avec express-validator
 
-**Phase 4 : Stockage de Fichiers (Priorité MOYENNE)**
-- [ ] Configuration AWS S3
-- [ ] Upload de fichiers (multer + S3)
-- [ ] Gestion des URLs signées pour sécurité
-- [ ] Suppression de fichiers S3
+**Phase 4 : Stockage de Fichiers (✅ COMPLÉTÉE)**
+- [x] Configuration AWS S3
+- [x] Upload de fichiers (multer + S3)
+- [x] Gestion des URLs signées pour sécurité
+- [x] Suppression de fichiers S3
 
-**Phase 5 : Interfaces Utilisateur (Priorité MOYENNE)**
-- [ ] Page de connexion/inscription commune
-- [ ] Dashboard enseignant (liste des cours)
-- [ ] Formulaire de création/édition de cours
-- [ ] Gestion des ressources (upload)
-- [ ] Dashboard étudiant (cours disponibles)
-- [ ] Page de détail d'un cours
-- [ ] Page "Mes cours" pour étudiants
+**Phase 5 : Interfaces Utilisateur (✅ COMPLÉTÉE)**
+- [x] Page de connexion/inscription commune
+- [x] Dashboard enseignant (liste des cours)
+- [x] Formulaire de création/édition de cours
+- [x] Gestion des ressources (upload)
+- [x] Dashboard étudiant (cours disponibles)
+- [x] Page de détail d'un cours
+- [x] Page "Mes cours" pour étudiants
 
 **Phase 6 : Amélioration & Production (Priorité BASSE)**
 - [ ] Tests unitaires (Jest)
