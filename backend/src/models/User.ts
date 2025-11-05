@@ -21,10 +21,13 @@ interface UserCreationAttributes extends Optional<UserAttributes, 'id'> {}
 class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   public id!: number;
   public email!: string;
+  public username!: string;
   public password!: string;
   public firstName!: string;
   public lastName!: string;
+  public phone?: string;
   public role!: 'teacher' | 'student';
+  public level?: number;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -53,13 +56,27 @@ User.init(
       allowNull: false,
       unique: true,
       validate: {
+    username: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      unique: true
+    },
         isEmail: true
       }
     },
     password: {
+    phone: {
+      type: DataTypes.STRING(20),
+      allowNull: true
+    },
       type: DataTypes.STRING(255),
       allowNull: false
     },
+    },
+    level: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0
     firstName: {
       type: DataTypes.STRING(100),
       allowNull: false

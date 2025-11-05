@@ -5,10 +5,13 @@ import sequelize from '../config/database';
 interface CourseResourceAttributes {
   id: number;
   courseId: number;
+  levelId?: number;
   title: string;
   description: string;
   fileUrl: string;
   fileType: string;
+  category: 'notes' | 'exercices' | 'examen';
+  isVisible: boolean;
   uploadedAt?: Date;
 }
 
@@ -20,10 +23,13 @@ class CourseResource extends Model<CourseResourceAttributes, CourseResourceCreat
   implements CourseResourceAttributes {
   public id!: number;
   public courseId!: number;
+  public levelId?: number;
   public title!: string;
   public description!: string;
   public fileUrl!: string;
   public fileType!: string;
+  public category!: 'notes' | 'exercices' | 'examen';
+  public isVisible!: boolean;
 
   public readonly uploadedAt!: Date;
 }
@@ -44,6 +50,14 @@ CourseResource.init(
         key: 'id'
       }
     },
+    levelId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'levels',
+        key: 'id'
+      }
+    },
     title: {
       type: DataTypes.STRING(255),
       allowNull: false
@@ -59,6 +73,16 @@ CourseResource.init(
     fileType: {
       type: DataTypes.STRING(50),
       allowNull: false
+    },
+    category: {
+      type: DataTypes.ENUM('notes', 'exercices', 'examen'),
+      allowNull: false,
+      defaultValue: 'notes'
+    },
+    isVisible: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
     },
     uploadedAt: {
       type: DataTypes.DATE,

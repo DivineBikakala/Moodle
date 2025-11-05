@@ -25,7 +25,7 @@ router.post(
       }
 
       const courseId = parseInt(req.params.id, 10);
-      const { title, description } = req.body;
+      const { title, description, levelId, category, isVisible } = req.body;
 
       if (!title) {
         return res.status(400).json({ error: 'Le titre est requis' });
@@ -44,10 +44,13 @@ router.post(
       const fileInfo = req.file as any; // multer-s3 ajoute des propriétés spécifiques
       const resource = await CourseResource.create({
         courseId,
+        levelId: levelId ? parseInt(levelId, 10) : null,
         title,
         description: description || '',
         fileUrl: fileInfo.location || fileInfo.key, // URL S3 ou clé
-        fileType: fileInfo.mimetype
+        fileType: fileInfo.mimetype,
+        category: category || 'notes',
+        isVisible: isVisible === 'true' || isVisible === true
       });
 
       res.status(201).json({

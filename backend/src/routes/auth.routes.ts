@@ -29,13 +29,13 @@ const generateToken = (user: User): string => {
 // POST /api/auth/register - Inscription
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const { email, password, firstName, lastName, role } = req.body;
+    const { email, username, password, firstName, lastName, role, phone, level } = req.body;
 
     // Validation des champs
-    if (!email || !password || !firstName || !lastName) {
+    if (!email || !username || !password || !firstName || !lastName) {
       return res.status(400).json({
         error: 'Tous les champs sont requis',
-        required: ['email', 'password', 'firstName', 'lastName']
+        required: ['email', 'username', 'password', 'firstName', 'lastName']
       });
     }
 
@@ -47,16 +47,27 @@ router.post('/register', async (req: Request, res: Response) => {
       });
     }
 
+    // Vérifier si le username existe déjà
+    const existingUsername = await User.findOne({ where: { username } });
+    if (existingUsername) {
+      return res.status(409).json({
+        error: 'Ce nom d\'utilisateur est déjà utilisé'
+      });
+    }
+
     // Validation du rôle
     const userRole = role === 'teacher' ? 'teacher' : 'student';
 
     // Créer l'utilisateur (le mot de passe sera hashé automatiquement)
     const user = await User.create({
       email,
+      username,
       password,
       firstName,
       lastName,
-      role: userRole
+      phone: phone || null,
+      role: userRole,
+      level: level || 0
     });
 
     // Générer le token JWT
@@ -68,9 +79,12 @@ router.post('/register', async (req: Request, res: Response) => {
       user: {
         id: user.id,
         email: user.email,
+        username: user.username,
         firstName: user.firstName,
         lastName: user.lastName,
+        phone: user.phone,
         role: user.role,
+        level: user.level,
         createdAt: user.createdAt
       },
       token
@@ -121,9 +135,12 @@ router.post('/login', async (req: Request, res: Response) => {
       user: {
         id: user.id,
         email: user.email,
+        username: user.username,
         firstName: user.firstName,
         lastName: user.lastName,
-        role: user.role
+        phone: user.phone,
+        role: user.role,
+        level: user.level
       },
       token
     });
@@ -170,9 +187,12 @@ router.get('/me', async (req: Request, res: Response) => {
       user: {
         id: user.id,
         email: user.email,
+        username: user.username,
         firstName: user.firstName,
         lastName: user.lastName,
+        phone: user.phone,
         role: user.role,
+        level: user.level,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
       }

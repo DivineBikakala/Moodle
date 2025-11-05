@@ -86,20 +86,46 @@ Moodle/
    - Supprimer des cours
    - Gérer la visibilité des cours
 
-2. **Gestion des Ressources**
-   - Uploader des fichiers (PDF, documents, vidéos)
-   - Organiser les ressources par cours
-   - Modifier ou supprimer des ressources
+2. **Gestion Complète des Étudiants** ⭐ NOUVEAU
+   - Ajouter de nouveaux étudiants avec nom d'utilisateur et mot de passe temporaire
+   - Consulter la liste complète des étudiants avec leurs informations (email, téléphone)
+   - Voir les détails complets : nom d'utilisateur, niveau actuel
+   - Modifier les informations des étudiants
+   - Faire évoluer les étudiants de niveau en niveau
+   - Supprimer des comptes étudiants
+   - Les étudiants peuvent changer leur mot de passe après la première connexion
+
+3. **Système de Niveaux** ⭐ NOUVEAU
+   - Créer des niveaux personnalisés (Level 0, 1, 2, etc.)
+   - Affecter les étudiants à un niveau spécifique
+   - Organiser les ressources par niveau
+   - Interface dynamique affichant tous les niveaux créés
+
+4. **Gestion des Ressources par Niveau** ⭐ NOUVEAU
+   - Uploader des fichiers (PDF, audio, vidéo) pour chaque niveau
+   - Catégoriser les ressources : Notes de cours, Exercices, Examens
+   - Contrôler la visibilité des ressources (visible/caché)
+   - Les ressources sont visibles uniquement aux étudiants du niveau correspondant
    - Stockage sécurisé sur AWS S3
 
-3. **Gestion des Étudiants**
-   - Voir les étudiants inscrits
-   - Gérer les inscriptions
+5. **Horaire du Professeur** ⭐ NOUVEAU
+   - Créer des cours programmés avec date, heure et lieu
+   - Visualiser son emploi du temps
+   - Gérer les événements du calendrier académique
+   - Organiser les sessions de cours
 
+6. **Interface Moderne et Professionnelle** ⭐
+   - Design bleu marine et jaune professionnel
+   - Navigation par onglets : Cours | Étudiants | Niveaux | Horaire
+   - Interface intuitive et responsive
+
+  username: string ⭐ NOUVEAU
 ### Pour les Étudiants 🎓
 
 1. **Navigation des Cours**
+  phone?: string ⭐ NOUVEAU
    - Parcourir les cours disponibles
+  level?: number ⭐ NOUVEAU (pour les étudiants)
    - S'inscrire aux cours
    - Accéder aux cours inscrits
 
@@ -117,15 +143,44 @@ Moodle/
 ### Utilisateur (User)
 ```typescript
 {
+### Niveau (Level) ⭐ NOUVEAU
+```typescript
+{
+  id: number
+  name: string
+  description?: string
+  order: number
+  createdAt: Date
+}
+```
+
+### Horaire (Schedule) ⭐ NOUVEAU
+```typescript
+{
+  id: number
+  teacherId: number (référence User)
+  title: string
+  description?: string
+  date: Date
+  startTime: string
+  endTime: string
+  location?: string
+  createdAt: Date
+}
+```
+
   id: number
   email: string
   password: string (hashé)
   firstName: string
   lastName: string
+  levelId?: number ⭐ NOUVEAU (référence Level)
   role: 'teacher' | 'student'
   createdAt: Date
 }
 ```
+  category: 'notes' | 'exercices' | 'examen' ⭐ NOUVEAU
+  isVisible: boolean ⭐ NOUVEAU
 
 ### Cours (Course)
 ```typescript
@@ -304,7 +359,76 @@ Pour plus de détails, consultez `DEMARRAGE.md` et `SETUP.md`.
 - [x] Page de détail d'un cours
 - [x] Page "Mes cours" pour étudiants
 
-**Phase 6 : Amélioration & Production (Priorité BASSE)**
+**Phase 6 : Système de Gestion Avancé des Étudiants** ⭐ EN COURS
+- [x] Modèle User étendu (username, phone, level)
+- [x] Modèle Level pour organiser les niveaux
+- [x] Modèle Schedule pour l'horaire du professeur
+- [x] Routes API pour gestion des étudiants (CRUD complet)
+- [x] Routes API pour gestion des niveaux
+- [x] Routes API pour gestion de l'horaire
+- [x] Interface professeur avec navigation par onglets
+- [x] Onglet Étudiants : Ajout, modification, suppression
+- [x] Onglet Niveaux : Création et gestion des niveaux
+- [x] Onglet Horaire : Planning des cours
+- [x] Ressources catégorisées (notes, exercices, examens)
+- [x] Contrôle de visibilité des ressources par niveau
+- [x] Design professionnel bleu marine/jaune
+
+**Phase 7 : Fonctionnalités Avancées** 🚀 PROPOSITIONS
+- [ ] **Statistiques et Analytics**
+  - Tableau de bord avec statistiques par niveau
+  - Suivi de la progression des étudiants
+  - Taux de réussite par niveau
+  - Graphiques de performance
+  
+- [ ] **Communication**
+  - Système de messagerie interne professeur-étudiant
+  - Notifications push pour nouveaux contenus
+  - Annonces globales par niveau
+  - Forum de discussion par cours
+  
+- [ ] **Gestion Avancée des Étudiants**
+  - Import/Export CSV des étudiants
+  - Filtrage et recherche avancée
+  - Groupes d'étudiants
+  - Historique des changements de niveau
+  - Notes et commentaires sur les étudiants
+  - Photos de profil
+  
+- [ ] **Système d'Évaluation**
+  - Création de quiz en ligne
+  - Correction automatique de QCM
+  - Attribution de notes
+  - Relevés de notes par étudiant
+  - Certificats de réussite automatiques
+  
+- [ ] **Gestion Multi-Professeurs**
+  - Interface admin pour gérer plusieurs professeurs
+  - Permissions et rôles (admin, professeur, assistant)
+  - Attribution de cours à différents professeurs
+  - Collaboration entre professeurs
+  
+- [ ] **Ressources Enrichies**
+  - Intégration de vidéos YouTube/Vimeo
+  - Lecteur audio/vidéo intégré
+  - Aperçu PDF dans le navigateur
+  - Quiz interactifs dans les ressources
+  - Temps de lecture/visionnage estimé
+  
+- [ ] **Calendrier et Planning**
+  - Vue calendrier mensuelle/hebdomadaire
+  - Rappels automatiques de cours
+  - Synchronisation avec Google Calendar
+  - Gestion des absences
+  - Réservation de salles
+  
+- [ ] **Rapports et Documents**
+  - Génération automatique de rapports PDF
+  - Bulletins de notes
+  - Attestations de présence
+  - Exports Excel des données
+
+**Phase 8 : Amélioration & Production** (Priorité BASSE)
 - [ ] Tests unitaires (Jest)
 - [ ] Tests d'intégration
 - [ ] Logger Winston complet
@@ -313,6 +437,8 @@ Pour plus de détails, consultez `DEMARRAGE.md` et `SETUP.md`.
 - [ ] Documentation API (Swagger)
 - [ ] Optimisation des performances
 - [ ] Déploiement (Heroku/Vercel)
+- [ ] Backup automatique de la base de données
+- [ ] Monitoring et alertes
 
 ## 🤝 Contribution
 

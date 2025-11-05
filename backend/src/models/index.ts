@@ -2,6 +2,8 @@ import User from './User';
 import Course from './Course';
 import CourseResource from './CourseResource';
 import Enrollment from './Enrollment';
+import Level from './Level';
+import Schedule from './Schedule';
 
 // Définition des relations entre les modèles
 
@@ -59,19 +61,45 @@ Course.hasMany(Enrollment, {
 Enrollment.belongsTo(Course, {
   foreignKey: 'courseId',
   as: 'course'
+// Un niveau (Level) peut avoir plusieurs ressources (CourseResource)
+Level.hasMany(CourseResource, {
+  foreignKey: 'levelId',
+  as: 'resources'
+});
+
+CourseResource.belongsTo(Level, {
+  foreignKey: 'levelId',
+  as: 'level'
+});
+
+// Un enseignant (User) peut avoir plusieurs horaires (Schedule)
+User.hasMany(Schedule, {
+  foreignKey: 'teacherId',
+  as: 'schedules'
+});
+
+Schedule.belongsTo(User, {
+  foreignKey: 'teacherId',
+  as: 'teacher'
+});
+
 });
 
 // Export de tous les modèles
 export {
   User,
-  Course,
+  Enrollment,
+  Level,
+  Schedule
   CourseResource,
   Enrollment
 };
 
 export default {
   User,
-  Course,
+  Enrollment,
+  Level,
+  Schedule
   CourseResource,
   Enrollment
 };
