@@ -29,8 +29,9 @@ Thumbs.db
 backend/backend.log
 backend/backend-startup.log
 
-# Ignorer tous les fichiers Markdown
-*.md
-
-# SAUF le README.md (exception)
-!README.md
+# Fichiers de documentation personnelle (développement)
+ETAPE*.md
+ETAPE*_COMPLETED.md
+STATUS.md
+TEST_API.md
+INSTALLATION_STATUS.md
