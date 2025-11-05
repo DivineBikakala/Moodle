@@ -1,0 +1,36 @@
+# Dépendances Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Fichiers de build
+dist/
+build/
+*.log
+
+# Variables d'environnement
+.env
+.env.local
+.env.production
+
+# Fichiers de l'IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Fichiers temporaires du backend
+backend/backend.log
+backend/backend-startup.log
+
+# Ignorer tous les fichiers Markdown
+*.md
+
+# SAUF le README.md (exception)
+!README.md

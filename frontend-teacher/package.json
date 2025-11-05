@@ -1,0 +1,15 @@
+{
+  "name": "frontend-teacher",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --port 5173"
+  },
+  "devDependencies": {
+    "vite": "^5.1.0",
+    "typescript": "^5.1.6"
+  }
+}
+
