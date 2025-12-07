@@ -22,7 +22,8 @@ interface Course {
   title: string;
   description: string;
   teacherId: number;
-  isPublished: boolean;
+  status: 'draft' | 'published' | 'archived';
+  isPublished?: boolean; // Pour compatibilité avec l'ancien format
   createdAt: string;
   updatedAt: string;
 }
@@ -70,6 +71,7 @@ let selectedStudent: Student | null = null;
 let selectedLevel: Level | null = null;
 let currentTab: 'courses' | 'students' | 'levels' | 'schedule' = 'courses';
 
+
 // Initialize app
 function init() {
   if (authToken) {
@@ -108,7 +110,7 @@ async function verifyToken() {
     const data = await apiCall('/auth/me');
     currentUser = data.user;
     showDashboard();
-  } catch (error) {
+  } catch (_error) {
     localStorage.removeItem('authToken');
     authToken = null;
     showAuthPage();
@@ -127,7 +129,13 @@ async function login(email: string, password: string) {
   showDashboard();
 }
 
-async function register(email: string, username: string, password: string, firstName: string, lastName: string) {
+async function register(
+    email: string,
+    username: string,
+    password: string,
+    firstName: string,
+    lastName: string
+) {
   const data = await apiCall('/auth/register', {
     method: 'POST',
     body: JSON.stringify({ email, username, password, firstName, lastName, role: 'teacher' }),
@@ -148,9 +156,15 @@ function logout() {
 
 // Students API
 async function loadStudents() {
-  const data = await apiCall('/students');
-  students = data.students;
-  renderStudents();
+  try {
+    const data = await apiCall('/students');
+    students = data.students;
+    renderStudents();
+  } catch (error: any) {
+    console.error('Error loading students:', error);
+    students = [];
+    renderStudents();
+  }
 }
 
 async function createStudent(studentData: any) {
@@ -178,23 +192,42 @@ async function deleteStudent(id: number) {
 
 // Courses API
 async function loadCourses() {
-  const data = await apiCall('/courses');
-  courses = data.courses.filter((c: Course) => c.teacherId === currentUser?.id);
-  renderCourses();
+  try {
+    const data = await apiCall('/courses');
+    console.log('Courses data received:', data);
+    courses = data.courses.filter((c: Course) => c.teacherId === currentUser?.id);
+    renderCourses();
+  } catch (error: any) {
+    console.error('Error loading courses:', error);
+    // Afficher quand même l'interface vide
+    courses = [];
+    renderCourses();
+  }
 }
 
-async function createCourse(title: string, description: string, isPublished: boolean) {
+async function createCourse(
+    title: string,
+    description: string,
+    levelId: number | undefined,
+    isPublished: boolean
+) {
   await apiCall('/courses', {
     method: 'POST',
-    body: JSON.stringify({ title, description, isPublished }),
+    body: JSON.stringify({ title, description, levelId, isPublished }),
   });
   loadCourses();
 }
 
-async function updateCourse(id: number, title: string, description: string, isPublished: boolean) {
+async function updateCourse(
+    id: number,
+    title: string,
+    description: string,
+    levelId: number | undefined,
+    isPublished: boolean
+) {
   await apiCall(`/courses/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ title, description, isPublished }),
+    body: JSON.stringify({ title, description, levelId, isPublished }),
   });
   loadCourses();
 }
@@ -208,9 +241,15 @@ async function deleteCourse(id: number) {
 
 // Levels API
 async function loadLevels() {
-  const data = await apiCall('/levels');
-  levels = data.levels;
-  renderLevels();
+  try {
+    const data = await apiCall('/levels');
+    levels = data.levels;
+    renderLevels();
+  } catch (error: any) {
+    console.error('Error loading levels:', error);
+    levels = [];
+    renderLevels();
+  }
 }
 
 async function createLevel(name: string, description: string) {
@@ -230,9 +269,15 @@ async function deleteLevel(id: number) {
 
 // Schedule API
 async function loadSchedules() {
-  const data = await apiCall('/schedules');
-  schedules = data.schedules;
-  renderSchedules();
+  try {
+    const data = await apiCall('/schedules');
+    schedules = data.schedules;
+    renderSchedules();
+  } catch (error: any) {
+    console.error('Error loading schedules:', error);
+    schedules = [];
+    renderSchedules();
+  }
 }
 
 async function createSchedule(scheduleData: any) {
@@ -322,7 +367,6 @@ function showRegisterForm() {
   document.getElementById('register-form')!.addEventListener('submit', handleRegister);
   document.getElementById('show-login')!.addEventListener('click', showAuthPage);
 }
-
 function showDashboard() {
   const app = document.getElementById('app')!;
   app.innerHTML = `
@@ -393,7 +437,7 @@ function switchTab(tab: typeof currentTab) {
 function loadTabContent(tab: typeof currentTab) {
   switch (tab) {
     case 'courses':
-      loadCourses();
+      loadCourses();   // IMPORTANT : ici c’est bien loadCourses()
       break;
     case 'students':
       loadStudents();
@@ -406,6 +450,7 @@ function loadTabContent(tab: typeof currentTab) {
       break;
   }
 }
+
 
 function renderCourses() {
   const container = document.getElementById('tab-content')!;
@@ -421,7 +466,8 @@ function renderCourses() {
     <div id="courses-list" class="grid grid-2"></div>
   `;
 
-  document.getElementById('btn-add-course')!.addEventListener('click', () => showCourseModal());
+  document.getElementById('btn-add-course')!
+      .addEventListener('click', () => showCourseModal());
 
   const coursesList = document.getElementById('courses-list')!;
 
@@ -435,22 +481,26 @@ function renderCourses() {
     return;
   }
 
-  coursesList.innerHTML = courses.map(course => `
-    <div class="card">
-      <div class="card-header">
-        <h3 class="card-title">${course.title}</h3>
-        <span class="card-badge ${course.isPublished ? 'badge-published' : 'badge-draft'}">
-          ${course.isPublished ? '✓ Publié' : 'Brouillon'}
-        </span>
+  coursesList.innerHTML = courses.map(course => {
+    const isPublished = course.status === 'published';
+    return `
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">${course.title}</h3>
+          <span class="card-badge ${isPublished ? 'badge-published' : 'badge-draft'}">
+            ${isPublished ? '✓ Publié' : 'Brouillon'}
+          </span>
+        </div>
+        <p class="card-description">${course.description}</p>
+        <div class="card-actions">
+          <button class="btn btn-sm btn-primary" onclick="editCourse(${course.id})">✏️ Modifier</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteCourseHandler(${course.id})">🗑️ Supprimer</button>
+        </div>
       </div>
-      <p class="card-description">${course.description}</p>
-      <div class="card-actions">
-        <button class="btn btn-sm btn-primary" onclick="editCourse(${course.id})">✏️ Modifier</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteCourseHandler(${course.id})">🗑️ Supprimer</button>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
+
 
 function renderStudents() {
   const container = document.getElementById('tab-content')!;
@@ -480,23 +530,24 @@ function renderStudents() {
     return;
   }
 
-  studentsList.innerHTML = students.map(student => `
-    <div class="list-item">
-      <div class="list-item-content">
-        <div class="list-item-title">${student.firstName} ${student.lastName}</div>
-        <div class="list-item-subtitle">
-          @${student.username} • ${student.email}${student.phone ? ' • ' + student.phone : ''} • 
-          <span class="badge-level">Niveau ${student.level || 0}</span>
+  studentsList.innerHTML = students
+      .map(student => `
+      <div class="list-item">
+        <div class="list-item-content">
+          <div class="list-item-title">${student.firstName} ${student.lastName}</div>
+          <div class="list-item-subtitle">
+            @${student.username} • ${student.email}${student.phone ? ' • ' + student.phone : ''} • 
+            <span class="badge-level">Niveau ${student.level || 0}</span>
+          </div>
+        </div>
+        <div class="list-item-actions">
+          <button class="btn btn-sm btn-primary" onclick="editStudent(${student.id})">✏️ Modifier</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteStudentHandler(${student.id})">🗑️ Supprimer</button>
         </div>
       </div>
-      <div class="list-item-actions">
-        <button class="btn btn-sm btn-primary" onclick="editStudent(${student.id})">✏️ Modifier</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteStudentHandler(${student.id})">🗑️ Supprimer</button>
-      </div>
-    </div>
-  `).join('');
+    `)
+      .join('');
 }
-
 function renderLevels() {
   const container = document.getElementById('tab-content')!;
 
@@ -511,7 +562,8 @@ function renderLevels() {
     <div id="levels-list" class="grid grid-3"></div>
   `;
 
-  document.getElementById('btn-add-level')!.addEventListener('click', () => showLevelModal());
+  document.getElementById('btn-add-level')!
+      .addEventListener('click', () => showLevelModal());
 
   const levelsList = document.getElementById('levels-list')!;
 
@@ -567,26 +619,29 @@ function renderSchedules() {
     return;
   }
 
-  schedulesList.innerHTML = schedules.map(schedule => `
-    <div class="list-item">
-      <div class="list-item-content">
-        <div class="list-item-title">${schedule.title}</div>
-        <div class="list-item-subtitle">
-          📅 ${formatDate(schedule.date)} • ⏰ ${schedule.startTime} - ${schedule.endTime}
-          ${schedule.location ? ' • 📍 ' + schedule.location : ''}
+  schedulesList.innerHTML = schedules
+      .map(schedule => `
+      <div class="list-item">
+        <div class="list-item-content">
+          <div class="list-item-title">${schedule.title}</div>
+          <div class="list-item-subtitle">
+            📅 ${formatDate(schedule.date)} • ⏰ ${schedule.startTime} - ${schedule.endTime}
+            ${schedule.location ? ' • 📍 ' + schedule.location : ''}
+          </div>
+          ${schedule.description ? `<div style="margin-top: 8px; font-size: 13px;">${schedule.description}</div>` : ''}
         </div>
-        ${schedule.description ? `<div style="margin-top: 8px; font-size: 13px;">${schedule.description}</div>` : ''}
+        <div class="list-item-actions">
+          <button class="btn btn-sm btn-danger" onclick="deleteScheduleHandler(${schedule.id})">🗑️ Supprimer</button>
+        </div>
       </div>
-      <div class="list-item-actions">
-        <button class="btn btn-sm btn-danger" onclick="deleteScheduleHandler(${schedule.id})">🗑️ Supprimer</button>
-      </div>
-    </div>
-  `).join('');
+    `)
+      .join('');
 }
 
 // Modals
 function showCourseModal(course?: Course) {
   const isEdit = !!course;
+
   const modalHTML = `
     <div class="modal" id="course-modal">
       <div class="modal-content">
@@ -598,17 +653,42 @@ function showCourseModal(course?: Course) {
           <div id="modal-error"></div>
           <form id="course-form">
             <div class="form-group">
-              <label class="form-label">Titre</label>
+              <label class="form-label">Titre *</label>
               <input type="text" id="course-title" class="form-input" value="${course?.title || ''}" required />
             </div>
             <div class="form-group">
-              <label class="form-label">Description</label>
+              <label class="form-label">Description *</label>
               <textarea id="course-description" class="form-textarea" required>${course?.description || ''}</textarea>
             </div>
             <div class="form-group">
+              <label class="form-label">Niveau</label>
+              <select id="course-level" class="form-input" required>
+                <option value="">Sélectionner un niveau</option>
+                ${levels
+      .map(
+          level => `
+                  <option value="${level.id}" ${(course as any)?.levelId === level.id ? 'selected' : ''}>
+                    ${level.name}
+                  </option>
+                `
+      )
+      .join('')}
+              </select>
+              ${
+      levels.length === 0
+          ? '<small style="color: var(--gray-500); font-size: 12px;">Aucun niveau créé. Allez dans l\'onglet "Niveaux" pour en créer.</small>'
+          : ''
+  }
+            </div>
+            <div class="form-group">
               <label style="display: flex; align-items: center; cursor: pointer;">
-                <input type="checkbox" id="course-published" class="form-checkbox" ${course?.isPublished ? 'checked' : ''} />
-                Publier ce cours
+                <input
+                  type="checkbox"
+                  id="course-published"
+                  class="form-checkbox"
+                  ${course?.status === 'published' ? 'checked' : ''}
+                />
+                &nbsp;Publier ce cours
               </label>
             </div>
             <div class="modal-footer">
@@ -653,20 +733,40 @@ function showStudentModal(student?: Student) {
               <label class="form-label">Email</label>
               <input type="email" id="student-email" class="form-input" value="${student?.email || ''}" required />
             </div>
-            ${!isEdit ? `
+            ${
+      !isEdit
+          ? `
             <div class="form-group">
               <label class="form-label">Mot de passe temporaire</label>
               <input type="password" id="student-password" class="form-input" required />
               <small style="color: var(--gray-500); font-size: 12px;">L'étudiant pourra le changer après connexion</small>
             </div>
-            ` : ''}
+            `
+          : ''
+  }
             <div class="form-group">
               <label class="form-label">Téléphone (optionnel)</label>
               <input type="tel" id="student-phone" class="form-input" value="${student?.phone || ''}" />
             </div>
             <div class="form-group">
               <label class="form-label">Niveau</label>
-              <input type="number" id="student-level" class="form-input" value="${student?.level || 0}" min="0" required />
+              <select id="student-level" class="form-input" required>
+                <option value="">Sélectionner un niveau</option>
+                ${levels
+      .map(
+          level => `
+                  <option value="${level.id}" ${student?.level === level.id ? 'selected' : ''}>
+                    ${level.name}
+                  </option>
+                `
+      )
+      .join('')}
+              </select>
+              ${
+      levels.length === 0
+          ? '<small style="color: var(--gray-500); font-size: 12px;">Aucun niveau créé. Allez dans l\'onglet "Niveaux" pour en créer.</small>'
+          : ''
+  }
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" onclick="closeModal('student-modal')">Annuler</button>
@@ -804,14 +904,16 @@ async function handleCourseSubmit(e: Event, course?: Course) {
   e.preventDefault();
   const title = (document.getElementById('course-title') as HTMLInputElement).value;
   const description = (document.getElementById('course-description') as HTMLTextAreaElement).value;
+  const levelValue = (document.getElementById('course-level') as HTMLSelectElement).value;
+  const levelId = levelValue ? parseInt(levelValue, 10) : undefined;
   const isPublished = (document.getElementById('course-published') as HTMLInputElement).checked;
   const errorDiv = document.getElementById('modal-error')!;
 
   try {
     if (course) {
-      await updateCourse(course.id, title, description, isPublished);
+      await updateCourse(course.id, title, description, levelId, isPublished);
     } else {
-      await createCourse(title, description, isPublished);
+      await createCourse(title, description, levelId, isPublished);
     }
     closeModal('course-modal');
   } catch (error: any) {
@@ -824,13 +926,15 @@ async function handleStudentSubmit(e: Event, student?: Student) {
   const errorDiv = document.getElementById('modal-error')!;
 
   try {
+    const levelValue = (document.getElementById('student-level') as HTMLSelectElement).value;
+
     const studentData = {
       firstName: (document.getElementById('student-firstName') as HTMLInputElement).value,
       lastName: (document.getElementById('student-lastName') as HTMLInputElement).value,
       username: (document.getElementById('student-username') as HTMLInputElement).value,
       email: (document.getElementById('student-email') as HTMLInputElement).value,
       phone: (document.getElementById('student-phone') as HTMLInputElement).value || undefined,
-      level: parseInt((document.getElementById('student-level') as HTMLInputElement).value, 10),
+      level: levelValue ? parseInt(levelValue, 10) : undefined,
     };
 
     if (!student) {
@@ -912,9 +1016,12 @@ async function handleScheduleSubmit(e: Event) {
 // Utility functions
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
-  return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 // Start app
 init();
-

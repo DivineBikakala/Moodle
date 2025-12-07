@@ -5,9 +5,11 @@ const API_URL = 'http://localhost:3001/api';
 interface User {
   id: number;
   email: string;
+  username: string;
   firstName: string;
   lastName: string;
   role: string;
+  level?: number;
 }
 
 interface Course {
@@ -15,29 +17,31 @@ interface Course {
   title: string;
   description: string;
   teacherId: number;
-  isPublished: boolean;
+  status: 'draft' | 'published' | 'archived';
   createdAt: string;
   updatedAt: string;
-  teacher?: User;
+  levelId?: number | null;
+  teacher?: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
 }
 
-interface Resource {
+interface Level {
   id: number;
-  courseId: number;
-  title: string;
-  description: string;
-  fileUrl: string;
-  fileType: string;
-  uploadedAt: string;
+  name: string;
+  description?: string;
+  order: number;
 }
 
 // State management
 let currentUser: User | null = null;
 let authToken: string | null = localStorage.getItem('authToken');
-let availableCourses: Course[] = [];
-let myCourses: Course[] = [];
-let selectedCourse: Course | null = null;
-let courseResources: Resource[] = [];
+let levels: Level[] = [];
+let courses: Course[] = [];
+let selectedLevel: number | null = null;
 
 // Initialize app
 function init() {
@@ -96,10 +100,16 @@ async function login(email: string, password: string) {
   showDashboard();
 }
 
-async function register(email: string, password: string, firstName: string, lastName: string) {
+async function register(
+    email: string,
+    username: string,
+    password: string,
+    firstName: string,
+    lastName: string
+) {
   const data = await apiCall('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password, firstName, lastName, role: 'student' }),
+    body: JSON.stringify({ email, username, password, firstName, lastName, role: 'student' }),
   });
 
   authToken = data.token;
@@ -115,48 +125,24 @@ function logout() {
   showAuthPage();
 }
 
-async function loadAllCourses() {
-  const data = await apiCall('/courses');
-  availableCourses = data.courses.filter((c: Course) => c.isPublished);
-  renderAvailableCourses();
-}
-
-async function loadMyCourses() {
-  const data = await apiCall('/my-courses');
-  myCourses = data.courses;
-  renderMyCourses();
-}
-
-async function enrollCourse(courseId: number) {
+async function loadLevels() {
   try {
-    await apiCall(`/courses/${courseId}/enroll`, { method: 'POST' });
-    await loadAllCourses();
-    await loadMyCourses();
-  } catch (error: any) {
-    alert(error.message);
+    const data = await apiCall('/levels');
+    levels = data.levels || [];
+  } catch (error) {
+    console.error('Erreur chargement niveaux:', error);
+    levels = [];
   }
 }
 
-async function unenrollCourse(courseId: number) {
-  if (confirm('Êtes-vous sûr de vouloir vous désinscrire de ce cours ?')) {
-    await apiCall(`/courses/${courseId}/unenroll`, { method: 'DELETE' });
-    await loadAllCourses();
-    await loadMyCourses();
-  }
-}
-
-async function loadResources(courseId: number) {
-  const data = await apiCall(`/courses/${courseId}/resources`);
-  courseResources = data.resources;
-  showResourcesModal();
-}
-
-async function downloadResource(resourceId: number) {
+async function loadCourses() {
   try {
-    const data = await apiCall(`/resources/${resourceId}/download`);
-    window.open(data.downloadUrl, '_blank');
-  } catch (error: any) {
-    alert('Erreur lors du téléchargement : ' + error.message);
+    const data = await apiCall('/courses');
+    // On ne garde que les cours avec status = 'published'
+    courses = (data.courses as Course[]).filter((c) => c.status === 'published');
+  } catch (error) {
+    console.error('Erreur chargement cours:', error);
+    courses = [];
   }
 }
 
@@ -197,7 +183,7 @@ function showRegisterForm() {
     <div class="auth-container">
       <div class="auth-card">
         <div class="auth-header">
-          <h1>🎓 Créer un compte</h1>
+          <h1>📝 Créer un compte</h1>
           <p>Inscrivez-vous en tant qu'étudiant</p>
         </div>
         <div id="auth-error"></div>
@@ -209,6 +195,10 @@ function showRegisterForm() {
           <div class="form-group">
             <label class="form-label">Nom</label>
             <input type="text" id="lastName" class="form-input" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nom d'utilisateur</label>
+            <input type="text" id="username" class="form-input" required />
           </div>
           <div class="form-group">
             <label class="form-label">Email</label>
@@ -229,7 +219,7 @@ function showRegisterForm() {
   document.getElementById('show-login')!.addEventListener('click', showAuthPage);
 }
 
-function showDashboard() {
+async function showDashboard() {
   const app = document.getElementById('app')!;
   app.innerHTML = `
     <div class="dashboard">
@@ -241,121 +231,200 @@ function showDashboard() {
         </div>
       </nav>
       <div class="container">
-        <div class="section-header">
-          <h2>Mes Cours</h2>
-        </div>
-        <div id="my-courses-list"></div>
-        
-        <div class="section-header" style="margin-top: 40px;">
-          <h2>Cours Disponibles</h2>
-        </div>
-        <div id="available-courses-list"></div>
+        <div id="main-content"></div>
       </div>
     </div>
   `;
 
   document.getElementById('btn-logout')!.addEventListener('click', logout);
 
-  loadMyCourses();
-  loadAllCourses();
+  await Promise.all([loadLevels(), loadCourses()]);
+
+  showLevelsView();
 }
 
-function renderMyCourses() {
-  const container = document.getElementById('my-courses-list')!;
+function showLevelsView() {
+  selectedLevel = null;
+  const mainContent = document.getElementById('main-content')!;
 
-  if (myCourses.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <h3>Aucun cours inscrit</h3>
-        <p>Inscrivez-vous aux cours disponibles ci-dessous !</p>
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = myCourses.map(course => `
-    <div class="card">
-      <div class="card-header">
-        <h3 class="card-title">${course.title}</h3>
-        <span class="card-badge badge-published">Inscrit</span>
-      </div>
-      <p class="card-description">${course.description}</p>
-      <div class="card-actions">
-        <button class="btn-sm btn-resources" onclick="viewResourcesStudent(${course.id})">Voir les ressources</button>
-        <button class="btn-sm btn-delete" onclick="unenrollCourseHandler(${course.id})">Se désinscrire</button>
-      </div>
+  mainContent.innerHTML = `
+    <div class="section-header">
+      <h2 class="section-title">Mes Niveaux</h2>
+      <p class="section-subtitle">Sélectionnez un niveau pour voir les cours disponibles</p>
     </div>
-  `).join('');
-}
-
-function renderAvailableCourses() {
-  const container = document.getElementById('available-courses-list')!;
-  const enrolledIds = new Set(myCourses.map(c => c.id));
-  const coursesToShow = availableCourses.filter(c => !enrolledIds.has(c.id));
-
-  if (coursesToShow.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <h3>Aucun cours disponible</h3>
-        <p>Vous êtes inscrit à tous les cours disponibles !</p>
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = coursesToShow.map(course => `
-    <div class="card">
-      <div class="card-header">
-        <h3 class="card-title">${course.title}</h3>
-      </div>
-      <p class="card-description">${course.description}</p>
-      <div class="card-actions">
-        <button class="btn-sm btn-edit" onclick="enrollCourseHandler(${course.id})">S'inscrire</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-function showResourcesModal() {
-  const modalHTML = `
-    <div class="modal" id="resources-modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>Ressources - ${selectedCourse?.title}</h2>
-          <button class="btn-close" onclick="closeModal()">&times;</button>
-        </div>
-        <div id="resources-list"></div>
-      </div>
-    </div>
+    <div id="levels-container"></div>
   `;
 
-  document.body.insertAdjacentHTML('beforeend', modalHTML);
-  renderResources();
+  renderLevels();
 }
 
-function renderResources() {
-  const container = document.getElementById('resources-list')!;
+function renderLevels() {
+  const container = document.getElementById('levels-container')!;
 
-  if (courseResources.length === 0) {
-    container.innerHTML = '<p class="empty-state">Aucune ressource disponible</p>';
+  const displayLevels = [
+    { id: 0, name: 'Introduction', description: "Cours d'introduction et bases fondamentales", order: 0 },
+    ...levels.map((level) => ({
+      id: level.id,
+      name: level.name,
+      description: level.description || 'Aucune description',
+      order: level.order,
+    })),
+  ];
+
+  container.innerHTML = `
+    <div class="levels-grid">
+      ${displayLevels
+      .map(
+          (level, index) => `
+        <div class="level-card" onclick="viewLevel(${level.id})">
+          <div class="level-card-header level-${index}">
+            ${level.order === 0 ? '📚' : level.order}
+          </div>
+          <div class="level-card-body">
+            <div class="level-card-title">${level.name}</div>
+            <div class="level-card-description">${level.description}</div>
+            <div class="level-card-stats">
+              <span>📖 ${getCoursesCountForLevel(level.id)} cours</span>
+              <span>→</span>
+            </div>
+          </div>
+        </div>
+      `
+      )
+      .join('')}
+    </div>
+  `;
+}
+
+function getCoursesCountForLevel(levelId: number): number {
+  return courses.filter(
+      (c) => c.levelId === levelId || (c.levelId === undefined && levelId === 0)
+  ).length;
+}
+
+function viewLevel(levelId: number) {
+  selectedLevel = levelId;
+  const mainContent = document.getElementById('main-content')!;
+
+  const levelInfo = getLevelInfo(levelId);
+  const levelCourses = getCoursesForLevel(levelId);
+
+  mainContent.innerHTML = `
+    <div class="breadcrumb">
+      <span class="breadcrumb-item">
+        <a href="#" onclick="showLevelsView()" class="breadcrumb-link">Niveaux</a>
+      </span>
+      <span class="breadcrumb-separator">›</span>
+      <span class="breadcrumb-item">${levelInfo.name}</span>
+    </div>
+
+    <div class="section-header">
+      <h2 class="section-title">${levelInfo.name}</h2>
+      <p class="section-subtitle">${levelInfo.description}</p>
+    </div>
+
+    <div id="courses-container"></div>
+  `;
+
+  renderCourses(levelCourses);
+}
+
+function getLevelInfo(levelId: number) {
+  if (levelId === 0) {
+    return {
+      name: 'Introduction',
+      description: "Cours d'introduction et bases fondamentales",
+    };
+  }
+
+  const level = levels.find((l) => l.id === levelId);
+  if (level) {
+    return { name: level.name, description: level.description || 'Cours disponibles' };
+  }
+
+  return { name: `Niveau ${levelId}`, description: 'Cours disponibles' };
+}
+
+function getCoursesForLevel(levelId: number): Course[] {
+  return courses.filter((c) => {
+    const courseLevelId = c.levelId;
+    if (levelId === 0) {
+      return courseLevelId === 0 || courseLevelId === undefined || courseLevelId === null;
+    }
+    return courseLevelId === levelId;
+  });
+}
+
+function renderCourses(coursesToDisplay: Course[]) {
+  const container = document.getElementById('courses-container')!;
+
+  if (coursesToDisplay.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">📭</div>
+        <h3>Aucun cours disponible</h3>
+        <p>Il n'y a pas encore de cours pour ce niveau.</p>
+      </div>
+    `;
     return;
   }
 
-  container.innerHTML = courseResources.map(resource => `
-    <div class="resource-item">
-      <div class="resource-info">
-        <div class="resource-title">${resource.title}</div>
-        <div class="resource-meta">${resource.description || 'Pas de description'} • ${resource.fileType}</div>
-      </div>
-      <div class="resource-actions">
-        <button class="btn-sm btn-edit" onclick="downloadResourceHandler(${resource.id})">Télécharger</button>
-      </div>
+  container.innerHTML = `
+    <div class="courses-grid">
+      ${coursesToDisplay
+      .map(
+          (course) => `
+        <div class="course-card">
+          <div class="course-card-header">
+            <h3 class="course-card-title">${course.title}</h3>
+            <span class="course-badge ${
+              course.status === 'published' ? 'published' : 'draft'
+          }">
+              ${course.status === 'published' ? '✓ Publié' : 'Brouillon'}
+            </span>
+          </div>
+          <p class="course-card-description">${course.description}</p>
+          ${
+              course.teacher
+                  ? `
+            <div class="course-card-teacher">
+              <span>👨‍🏫</span>
+              <span>${course.teacher.firstName} ${course.teacher.lastName}</span>
+            </div>
+          `
+                  : ''
+          }
+          <div class="course-card-actions">
+            <button class="btn-course btn-view" onclick="viewCourse(${course.id})">
+              📖 Voir le cours
+            </button>
+            <button class="btn-course btn-enroll" onclick="enrollCourse(${course.id})">
+              ✓ S'inscrire
+            </button>
+          </div>
+        </div>
+      `
+      )
+      .join('')}
     </div>
-  `).join('');
+  `;
 }
 
-function closeModal() {
-  document.getElementById('resources-modal')?.remove();
+function viewCourse(courseId: number) {
+  alert(`Affichage du cours ${courseId} (fonctionnalité à venir)`);
+}
+
+async function enrollCourse(courseId: number) {
+  try {
+    await apiCall(`/courses/${courseId}/enroll`, { method: 'POST' });
+    alert('Inscription réussie !');
+    await loadCourses();
+    if (selectedLevel !== null) {
+      viewLevel(selectedLevel);
+    }
+  } catch (error: any) {
+    alert("Erreur lors de l'inscription : " + error.message);
+  }
 }
 
 // Event handlers
@@ -376,37 +445,23 @@ async function handleRegister(e: Event) {
   e.preventDefault();
   const firstName = (document.getElementById('firstName') as HTMLInputElement).value;
   const lastName = (document.getElementById('lastName') as HTMLInputElement).value;
+  const username = (document.getElementById('username') as HTMLInputElement).value;
   const email = (document.getElementById('email') as HTMLInputElement).value;
   const password = (document.getElementById('password') as HTMLInputElement).value;
   const errorDiv = document.getElementById('auth-error')!;
 
   try {
-    await register(email, password, firstName, lastName);
+    await register(email, username, password, firstName, lastName);
   } catch (error: any) {
     errorDiv.innerHTML = `<div class="error-message">${error.message}</div>`;
   }
 }
 
 // Global functions for onclick handlers
-(window as any).enrollCourseHandler = (id: number) => {
-  enrollCourse(id);
-};
-
-(window as any).unenrollCourseHandler = (id: number) => {
-  unenrollCourse(id);
-};
-
-(window as any).viewResourcesStudent = (id: number) => {
-  selectedCourse = [...myCourses, ...availableCourses].find(c => c.id === id) || null;
-  if (selectedCourse) loadResources(selectedCourse.id);
-};
-
-(window as any).downloadResourceHandler = (id: number) => {
-  downloadResource(id);
-};
-
-(window as any).closeModal = closeModal;
+(window as any).showLevelsView = showLevelsView;
+(window as any).viewLevel = viewLevel;
+(window as any).viewCourse = viewCourse;
+(window as any).enrollCourse = enrollCourse;
 
 // Start app
 init();
-

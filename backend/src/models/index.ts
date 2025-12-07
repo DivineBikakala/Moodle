@@ -5,101 +5,108 @@ import Enrollment from './Enrollment';
 import Level from './Level';
 import Schedule from './Schedule';
 
-// Définition des relations entre les modèles
 
-// Un enseignant (User) peut avoir plusieurs cours (Course)
-User.hasMany(Course, {
-  foreignKey: 'teacherId',
-  as: 'courses'
-});
+// Fonction pour initialiser toutes les associations
+// Elle doit être appelée APRÈS que tous les modèles soient chargés
+export const initializeAssociations = () => {
+  // Un enseignant (User) peut avoir plusieurs cours (Course)
+  User.hasMany(Course, {
+    foreignKey: 'teacherId',
+    as: 'courses'
+  });
 
-Course.belongsTo(User, {
-  foreignKey: 'teacherId',
-  as: 'teacher'
-});
+  Course.belongsTo(User, {
+    foreignKey: 'teacherId',
+    as: 'teacher'
+  });
 
-// Un cours (Course) peut avoir plusieurs ressources (CourseResource)
-Course.hasMany(CourseResource, {
-  foreignKey: 'courseId',
-  as: 'resources'
-});
+  // Un cours (Course) peut avoir plusieurs ressources (CourseResource)
+  Course.hasMany(CourseResource, {
+    foreignKey: 'courseId',
+    as: 'resources'
+  });
 
-CourseResource.belongsTo(Course, {
-  foreignKey: 'courseId',
-  as: 'course'
-});
+  CourseResource.belongsTo(Course, {
+    foreignKey: 'courseId',
+    as: 'course'
+  });
 
-// Relation many-to-many entre User (students) et Course via Enrollment
-User.belongsToMany(Course, {
-  through: Enrollment,
-  foreignKey: 'studentId',
-  as: 'enrolledCourses'
-});
+  // Relation many-to-many entre User (students) et Course via Enrollment
+  User.belongsToMany(Course, {
+    through: Enrollment,
+    foreignKey: 'studentId',
+    as: 'enrolledCourses'
+  });
 
-Course.belongsToMany(User, {
-  through: Enrollment,
-  foreignKey: 'courseId',
-  as: 'students'
-});
+  Course.belongsToMany(User, {
+    through: Enrollment,
+    foreignKey: 'courseId',
+    as: 'students'
+  });
 
-// Relations directes avec Enrollment pour plus de flexibilité
-User.hasMany(Enrollment, {
-  foreignKey: 'studentId',
-  as: 'enrollments'
-});
+  // Relations directes avec Enrollment pour plus de flexibilité
+  User.hasMany(Enrollment, {
+    foreignKey: 'studentId',
+    as: 'enrollments'
+  });
 
-Enrollment.belongsTo(User, {
-  foreignKey: 'studentId',
-  as: 'student'
-});
+  Enrollment.belongsTo(User, {
+    foreignKey: 'studentId',
+    as: 'student'
+  });
 
-Course.hasMany(Enrollment, {
-  foreignKey: 'courseId',
-  as: 'enrollments'
-});
+  Course.hasMany(Enrollment, {
+    foreignKey: 'courseId',
+    as: 'enrollments'
+  });
 
-Enrollment.belongsTo(Course, {
-  foreignKey: 'courseId',
-  as: 'course'
-// Un niveau (Level) peut avoir plusieurs ressources (CourseResource)
-Level.hasMany(CourseResource, {
-  foreignKey: 'levelId',
-  as: 'resources'
-});
+  Enrollment.belongsTo(Course, {
+    foreignKey: 'courseId',
+    as: 'course'
+  });
 
-CourseResource.belongsTo(Level, {
-  foreignKey: 'levelId',
-  as: 'level'
-});
+  // Un niveau (Level) peut avoir plusieurs ressources (CourseResource)
 
-// Un enseignant (User) peut avoir plusieurs horaires (Schedule)
-User.hasMany(Schedule, {
-  foreignKey: 'teacherId',
-  as: 'schedules'
-});
+  Level.hasMany(Course, {
+    foreignKey: 'levelId',
+    as: 'courses'
+  });
 
-Schedule.belongsTo(User, {
-  foreignKey: 'teacherId',
-  as: 'teacher'
-});
 
-});
+
+  Course.belongsTo(Level, {
+    foreignKey: 'levelId',
+    as: 'level'
+  });
+
+  // Un enseignant (User) peut avoir plusieurs horaires (Schedule)
+  User.hasMany(Schedule, {
+    foreignKey: 'teacherId',
+    as: 'schedules'
+  });
+
+  Schedule.belongsTo(User, {
+    foreignKey: 'teacherId',
+    as: 'teacher'
+  });
+};
+
 
 // Export de tous les modèles
 export {
   User,
+  Course,
+  CourseResource,
   Enrollment,
   Level,
   Schedule
-  CourseResource,
-  Enrollment
 };
 
 export default {
   User,
+  Course,
+  CourseResource,
   Enrollment,
   Level,
   Schedule
-  CourseResource,
-  Enrollment
 };

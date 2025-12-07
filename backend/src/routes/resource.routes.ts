@@ -14,7 +14,9 @@ router.post(
     body('title').isString().notEmpty(),
     body('description').optional().isString(),
     body('fileUrl').isString().notEmpty(),
-    body('fileType').isString().notEmpty()
+    body('fileType').isString().notEmpty(),
+    body('category').optional().isString(),
+    body('isVisible').optional().isBoolean()
   ],
   async (req: Request, res: Response) => {
     try {
@@ -24,7 +26,7 @@ router.post(
       }
 
       const courseId = parseInt(req.params.id, 10);
-      const { title, description, fileUrl, fileType } = req.body;
+      const { title, description, fileUrl, fileType, category, isVisible } = req.body;
 
       // Vérifier que le cours existe et appartient au teacher
       const course = await Course.findByPk(courseId);
@@ -38,7 +40,9 @@ router.post(
         title,
         description,
         fileUrl,
-        fileType
+        fileType,
+        category: category || 'general',
+        isVisible: isVisible !== undefined ? isVisible : true
       });
 
       res.status(201).json({ message: 'Ressource créée', resource });

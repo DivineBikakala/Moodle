@@ -6,10 +6,13 @@ import bcrypt from 'bcrypt';
 interface UserAttributes {
   id: number;
   email: string;
+  username: string;
   password: string;
   firstName: string;
   lastName: string;
+  phone?: string;
   role: 'teacher' | 'student';
+  level?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -56,27 +59,18 @@ User.init(
       allowNull: false,
       unique: true,
       validate: {
+        isEmail: true
+      }
+    },
     username: {
       type: DataTypes.STRING(100),
       allowNull: false,
       unique: true
     },
-        isEmail: true
-      }
-    },
     password: {
-    phone: {
-      type: DataTypes.STRING(20),
-      allowNull: true
-    },
       type: DataTypes.STRING(255),
       allowNull: false
     },
-    },
-    level: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      defaultValue: 0
     firstName: {
       type: DataTypes.STRING(100),
       allowNull: false
@@ -85,10 +79,19 @@ User.init(
       type: DataTypes.STRING(100),
       allowNull: false
     },
+    phone: {
+      type: DataTypes.STRING(20),
+      allowNull: true
+    },
     role: {
       type: DataTypes.ENUM('teacher', 'student'),
       allowNull: false,
       defaultValue: 'student'
+    },
+    level: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0
     }
   },
   {

@@ -44,7 +44,7 @@ router.post(
       const fileInfo = req.file as any; // multer-s3 ajoute des propriétés spécifiques
       const resource = await CourseResource.create({
         courseId,
-        levelId: levelId ? parseInt(levelId, 10) : null,
+        levelId: levelId ? parseInt(levelId, 10) : undefined,
         title,
         description: description || '',
         fileUrl: fileInfo.location || fileInfo.key, // URL S3 ou clé

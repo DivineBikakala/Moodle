@@ -33,9 +33,9 @@ export const connectDatabase = async (): Promise<void> => {
 };
 
 // Fonction pour synchroniser les modèles avec la base de données
-export const syncDatabase = async (force: boolean = false): Promise<void> => {
+export const syncDatabase = async (force: boolean = false, alter: boolean = false): Promise<void> => {
   try {
-    await sequelize.sync({ force }); // force: true supprime et recrée les tables
+    await sequelize.sync({ force, alter }); // force: true supprime et recrée les tables, alter: true modifie le schéma
     console.log('✅ Base de données synchronisée');
   } catch (error) {
     console.error('❌ Erreur lors de la synchronisation:', error);

@@ -60,10 +60,17 @@ router.post(
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+        console.error('Erreur de validation:', errors.array());
+        return res.status(400).json({
+          error: 'Erreur de validation',
+          details: errors.array(),
+          message: errors.array().map(e => e.msg).join(', ')
+        });
       }
 
       const { username, email, password, firstName, lastName, phone, level } = req.body;
+
+      console.log('Tentative de création d\'étudiant:', { username, email, firstName, lastName });
 
       // Vérifier si l'email existe déjà
       const existingEmail = await User.findOne({ where: { email } });

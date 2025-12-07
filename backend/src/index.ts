@@ -2,10 +2,13 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDatabase, syncDatabase } from './config/database';
-import './models'; // Importer les modèles et leurs relations
+import { initializeAssociations } from './models'; // Importer la fonction d'initialisation
 
 // Charger les variables d'environnement
 dotenv.config();
+
+// Initialiser les associations entre modèles
+initializeAssociations();
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -18,12 +21,13 @@ app.use(express.urlencoded({ extended: true })); // Parser les formulaires
 // Import des routes
 import authRoutes from './routes/auth.routes';
 import courseRoutes from './routes/course.routes';
-import { resourceRoutes } from './routes/resource.routes';
-import enrollmentRoutes from './routes/enrollment.routes';
-import { uploadRoutes } from './routes/upload.routes';
 import studentRoutes from './routes/student.routes';
 import levelRoutes from './routes/level.routes';
 import scheduleRoutes from './routes/schedule.routes';
+// Routes non utilisées pour l'instant (décommenter quand nécessaire) :
+// import enrollmentRoutes from './routes/enrollment.routes';
+// import { resourceRoutes } from './routes/resource.routes';
+// import { uploadRoutes } from './routes/upload.routes';
 
 // Routes de test
 app.get('/health', (_req, res) => {
@@ -55,8 +59,8 @@ const startServer = async () => {
     await connectDatabase();
 
     // Synchronisation des modèles (en développement uniquement)
-    // ATTENTION: Ne pas utiliser force: true en production !
-    await syncDatabase(false); // false = ne pas supprimer les tables existantes
+    // Le schéma a été mis à jour, on garde maintenant alter:false
+    await syncDatabase(false, false); // Conserver le schéma et les données
 
     // Démarrage du serveur Express
     app.listen(port, () => {
