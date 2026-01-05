@@ -370,6 +370,11 @@ function showRegisterForm() {
 }
 function showDashboard() {
   const app = document.getElementById('app')!;
+
+  // Show build tag only when running on localhost (development)
+  const isLocalhost = typeof window !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '');
+  const buildTagHtml = isLocalhost ? `<div style="font-size:12px; color: rgba(255,255,255,0.85); margin-right:8px;">${BUILD_TAG}</div>` : '';
+
   app.innerHTML = `
     <div class="dashboard">
       <nav class="navbar">
@@ -383,13 +388,13 @@ function showDashboard() {
           </div>
           <div class="navbar-right">
             <span class="user-info">${currentUser?.firstName} ${currentUser?.lastName}</span>
-            <div style="font-size:12px; color: rgba(255,255,255,0.85); margin-right:8px;">${BUILD_TAG}</div>
+            ${buildTagHtml}
             <button id="btn-force-reload" title="Vider le cache et recharger" class="btn btn-secondary" style="padding:6px 10px; font-size:12px; margin-right:8px;">Rafraîchir</button>
             <button id="btn-logout" class="btn-logout">Déconnexion</button>
           </div>
         </div>
       </nav>
-      
+
       <div class="nav-tabs">
         <button class="nav-tab ${currentTab === 'students' ? 'active' : ''}" data-tab="students">
           <span class="nav-tab-icon">👥</span>
@@ -404,7 +409,7 @@ function showDashboard() {
           Horaire
         </button>
       </div>
-      
+
       <div class="container" id="tab-content"></div>
     </div>
   `;
@@ -1052,4 +1057,3 @@ function showScheduleModal(schedule?: any) {
 ;(window as any).sanitizeName = sanitizeName;
 
 init();
-
