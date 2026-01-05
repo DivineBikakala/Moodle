@@ -1,4 +1,4 @@
-import { DataTypes, Model, Optional } from 'sequelize';
+import { DataTypes, Model, Optional, ModelCtor } from 'sequelize';
 import sequelize from '../config/database';
 import bcrypt from 'bcrypt';
 
@@ -20,104 +20,73 @@ interface UserAttributes {
 // Attributs optionnels lors de la création
 interface UserCreationAttributes extends Optional<UserAttributes, 'id'> {}
 
-// Classe du modèle User
-class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
-  public id!: number;
-  public email!: string;
-  public username!: string;
-  public password!: string;
-  public firstName!: string;
-  public lastName!: string;
-  public phone?: string;
-  public role!: 'teacher' | 'student';
-  public levelId?: number | null;
-
-  public readonly createdAt!: Date;
-  public readonly updatedAt!: Date;
-
-  // Méthode pour vérifier le mot de passe
-  public async comparePassword(candidatePassword: string): Promise<boolean> {
-    return bcrypt.compare(candidatePassword, this.password);
-  }
-
-  // Méthode pour obtenir le nom complet
-  public get fullName(): string {
-    return `${this.firstName} ${this.lastName}`;
-  }
-}
-
-// Initialisation du modèle
-User.init(
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true
-    },
-    email: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-      unique: true,
-      validate: {
-        isEmail: true
-      }
-    },
-    username: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-      unique: true
-    },
-    password: {
-      type: DataTypes.STRING(255),
-      allowNull: false
-    },
-    firstName: {
-      type: DataTypes.STRING(100),
-      allowNull: false
-    },
-    lastName: {
-      type: DataTypes.STRING(100),
-      allowNull: false
-    },
-    phone: {
-      type: DataTypes.STRING(20),
-      allowNull: true
-    },
-    role: {
-      type: DataTypes.ENUM('teacher', 'student'),
-      allowNull: false,
-      defaultValue: 'student'
-    },
-    levelId: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
-        model: 'levels',
-        key: 'id'
-      },
-      field: 'level' // map to existing DB column named 'level' to avoid migration
-    }
+// NOTE: Use define() instead of class extends Model to avoid "Class constructor Model cannot be invoked without 'new'" runtime issues
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
   },
-  {
-    sequelize,
-    tableName: 'users',
-    timestamps: true,
-    hooks: {
-      // Hook pour hasher le mot de passe avant de sauvegarder
-      beforeCreate: async (user: User) => {
-        if (user.password) {
-          const salt = await bcrypt.genSalt(10);
-          user.password = await bcrypt.hash(user.password, salt);
-        }
-      },
-      beforeUpdate: async (user: User) => {
-        if (user.changed('password')) {
-          const salt = await bcrypt.genSalt(10);
-          user.password = await bcrypt.hash(user.password, salt);
-        }
+  email: {
+    type: DataTypes.STRING(255),
+    allowNull: false,
+    unique: true,
+    validate: { isEmail: true }
+  },
+  username: {
+    type: DataTypes.STRING(100),
+    allowNull: false,
+    unique: true
+  },
+  password: {
+    type: DataTypes.STRING(255),
+    allowNull: false
+  },
+  firstName: {
+    type: DataTypes.STRING(100),
+    allowNull: false
+  },
+  lastName: {
+    type: DataTypes.STRING(100),
+    allowNull: false
+  },
+  phone: {
+    type: DataTypes.STRING(20),
+    allowNull: true
+  },
+  role: {
+    type: DataTypes.ENUM('teacher', 'student'),
+    allowNull: false,
+    defaultValue: 'student'
+  },
+  levelId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: 'levels', key: 'id' },
+    field: 'level' // map to existing DB column named 'level' to avoid migration
+  }
+}, {
+  tableName: 'users',
+  timestamps: true,
+  hooks: {
+    beforeCreate: async (user: any) => {
+      if (user.password) {
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(user.password, salt);
+      }
+    },
+    beforeUpdate: async (user: any) => {
+      if (user.changed && user.changed('password')) {
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(user.password, salt);
       }
     }
   }
-);
+}) as ModelCtor<any>;
+
+// Attach instance method comparePassword
+(User as any).prototype.comparePassword = async function(candidatePassword: string) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
 
 export default User;

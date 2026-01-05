@@ -2,6 +2,19 @@ import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models';
 
+// Diagnostic: inspect the imported User symbol
+try {
+  console.log('DEBUG: auth.routes loaded - User typeof:', typeof User);
+  if (User) {
+    console.log('DEBUG: User name:', (User as any).name);
+    console.log('DEBUG: User prototype is:', Object.getPrototypeOf(User) && Object.getPrototypeOf(User).name);
+    console.log('DEBUG: User instanceof Function?', User instanceof Function);
+    console.log('DEBUG: Model proto chain:', Object.getPrototypeOf(Object.getPrototypeOf(User)));
+  }
+} catch (e) {
+  console.warn('DEBUG: failed to inspect User', e);
+}
+
 const router = Router();
 
 // Interface pour le payload JWT
@@ -12,7 +25,7 @@ interface JWTPayload {
 }
 
 // Fonction pour générer un token JWT
-const generateToken = (user: User): string => {
+const generateToken = (user: any): string => {
   const payload: JWTPayload = {
     id: user.id,
     email: user.email,
@@ -97,6 +110,7 @@ router.post('/register', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Erreur lors de l\'inscription:', error);
+    console.error(error && error.stack);
     res.status(500).json({
       error: 'Erreur lors de l\'inscription',
       details: error.message
@@ -152,6 +166,7 @@ router.post('/login', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Erreur lors de la connexion:', error);
+    console.error(error && error.stack);
     res.status(500).json({
       error: 'Erreur lors de la connexion',
       details: error.message

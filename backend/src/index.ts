@@ -1,11 +1,22 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
+import express = require('express');
+import cors = require('cors');
+import * as dotenv from 'dotenv';
 import { connectDatabase, syncDatabase } from './config/database';
 import { initializeAssociations } from './models'; // Importer la fonction d'initialisation
 
-// Charger les variables d'environnement
-dotenv.config();
+// Charger les variables d'environnement de façon sûre
+if (typeof dotenv !== 'undefined' && typeof (dotenv as any).config === 'function') {
+  (dotenv as any).config();
+} else {
+  try {
+    // fallback require
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const dd = require('dotenv');
+    dd.config && dd.config();
+  } catch (e) {
+    console.warn('dotenv non chargé depuis index.ts ; en supposant variables d\'environnement externes');
+  }
+}
 
 // Initialiser les associations entre modèles
 initializeAssociations();

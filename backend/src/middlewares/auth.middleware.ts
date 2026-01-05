@@ -6,7 +6,7 @@ import { User } from '../models';
 declare global {
   namespace Express {
     interface Request {
-      user?: User;
+      user?: any; // Was User; use any to avoid TS value/type conflict
       userId?: number;
       userRole?: 'teacher' | 'student';
     }
