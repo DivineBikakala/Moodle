@@ -7,6 +7,17 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true
+  },
+
+  "exclude": [
+    "src/config/s3.ts",
+    "src/config/upload.ts",
+    "src/routes/upload.routes.ts"
+  ],
+  "compilerOptions": {
+    "skipLibCheck": true
   }
+
 }
+
 
