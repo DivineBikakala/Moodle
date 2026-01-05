@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Visualiseur BDD - Moodle</title>
+  <style>
+    :root{--bg:#0f1020;--card:#1b1f3b;--fg:#e8eaf6;--muted:#9aa0b4;--primary:#7c8cff}
+    body{font-family:Segoe UI, Inter, system-ui, sans-serif;background:linear-gradient(180deg,#0f1020 0%,#1b1f3b 100%);color:var(--fg);margin:0;padding:20px}
+    .app{max-width:1100px;margin:0 auto}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    h1{font-size:20px;color:var(--primary);margin:0}
+    .controls{display:flex;gap:8px;align-items:center}
+    input[type=text],input[type=url],textarea{background:#0f1225;border:1px solid #2d335d;color:var(--fg);padding:8px;border-radius:6px}
+    button{background:linear-gradient(135deg,var(--primary),#8b9eff);border:none;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
+    nav{display:flex;gap:8px;margin-bottom:12px}
+    .tab{padding:8px 12px;border-radius:8px;background:var(--card);cursor:pointer;border:1px solid #272a4a}
+    .tab.active{background:linear-gradient(90deg,#1e2446,#2a3160);border-color:var(--primary)}
+    .panel{background:var(--card);padding:14px;border-radius:12px;border:1px solid #272a4a;min-height:300px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:8px;border-bottom:1px dashed #2e3356;text-align:left;color:var(--muted)}
+    th{color:var(--fg);font-weight:700}
+    .error{color:#ff8b8b;background:#3b1f1f;padding:8px;border-radius:6px}
+    .small{font-size:12px;color:var(--muted)}
+    .jsondump{white-space:pre-wrap;background:#0b0d1a;padding:10px;border-radius:8px;color:#bcd}
+    .footer{margin-top:10px;color:var(--muted);font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Visualiseur BDD — Moodle</h1>
+      <div class="controls">
+        <label class="small" for="apiBase">API base:</label>
+        <input id="apiBase" name="apiBase" type="url" value="http://localhost:3001" style="width:220px" />
+        <label class="small" for="token">Token (optionnel):</label>
+        <input id="token" name="token" type="text" placeholder="Bearer token" style="width:260px" />
+        <button id="saveCfg">Enregistrer</button>
+      </div>
+    </header>
+
+    <nav>
+      <div class="tab active" data-tab="courses">Cours</div>
+      <div class="tab" data-tab="levels">Niveaux</div>
+      <div class="tab" data-tab="students">Étudiants</div>
+      <div class="tab" data-tab="users">Utilisateurs</div>
+      <div class="tab" data-tab="raw">Raw (débug)</div>
+    </nav>
+
+    <section class="panel" id="mainPanel">
+      <div id="status" class="small">Chargement...</div>
+      <div id="content" style="margin-top:12px"></div>
+    </section>
+
+    <div class="footer">Astuce: si un endpoint renvoie 401/403, fournissez un token (utilisez /api/auth/login) ou ouvrez pgAdmin/DBeaver.</div>
+  </div>
+
+  <script>
+    (function(){
+      const tabs = Array.from(document.querySelectorAll('.tab'))
+      const apiBaseInput = document.getElementById('apiBase')
+      const tokenInput = document.getElementById('token')
+      const saveBtn = document.getElementById('saveCfg')
+      const statusEl = document.getElementById('status')
+      const contentEl = document.getElementById('content')
+
+      // Load saved config
+      const saved = localStorage.getItem('visualiseur_cfg')
+      if (saved) {
+        try{const c=JSON.parse(saved); if(c.apiBase) apiBaseInput.value=c.apiBase; if(c.token) tokenInput.value=c.token}catch(e){}
+      }
+
+      saveBtn.addEventListener('click', ()=>{
+        localStorage.setItem('visualiseur_cfg', JSON.stringify({apiBase:apiBaseInput.value, token: tokenInput.value}))
+        statusEl.textContent = 'Configuration sauvegardée.'
+      })
+
+      tabs.forEach(t=> t.addEventListener('click', ()=>{
+        tabs.forEach(x=>x.classList.remove('active'))
+        t.classList.add('active')
+        loadTab(t.dataset.tab)
+      }))
+
+      function setStatus(msg, isError){ statusEl.textContent = msg; statusEl.className = isError ? 'error' : 'small' }
+
+      function authHeaders(){
+        const t = tokenInput.value.trim()
+        return t ? { 'Authorization': t.startsWith('Bearer') ? t : 'Bearer '+t } : {}
+      }
+
+      async function fetchJson(path){
+        const base = apiBaseInput.value.replace(/\/+$/,'')
+        const url = base + path
+        setStatus('Requête: ' + url)
+        try{
+          const res = await fetch(url, { headers: { 'Content-Type': 'application/json', ...authHeaders() } })
+          const txt = await res.text()
+          let data
+          try{ data = JSON.parse(txt) }catch(e){ data = txt }
+          if(!res.ok) {
+            const err = new Error('HTTP ' + res.status)
+            ;(err as any).status = res.status
+            ;(err as any).data = data
+            throw err
+          }
+          return data
+        }catch(err){ throw err }
+      }
+
+      function renderTable(list){
+        if(!Array.isArray(list)) return renderJson(list)
+        if(list.length===0) return '<div class="small">Aucune ligne</div>'
+        const keys = Array.from(list.reduce((s,row)=>{ Object.keys(row||{}).forEach(k=>s.add(k)); return s }, new Set()))
+        let html = '<table><thead><tr>' + keys.map(k=>'<th>'+escapeHtml(k)+'</th>').join('') + '</tr></thead><tbody>'
+        html += list.map(r=> '<tr>' + keys.map(k=>'<td>' + escapeHtml(cellPreview(r[k])) + '</td>').join('') + '</tr>').join('')
+        html += '</tbody></table>'
+        return html
+      }
+
+      function cellPreview(v){
+        if(v===null||v===undefined) return ''
+        if(typeof v ==='object') return JSON.stringify(v)
+        return String(v)
+      }
+      function escapeHtml(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+      function renderJson(obj){ return '<div class="jsondump">'+escapeHtml(JSON.stringify(obj,null,2))+'</div>' }
+
+      async function loadTab(tab){
+        contentEl.innerHTML = '<div class="small">Chargement...</div>'
+        try{
+          if(tab==='courses'){
+            const data = await fetchJson('/api/courses')
+            contentEl.innerHTML = renderTable(Array.isArray(data.courses) ? data.courses : data)
+            setStatus('OK — cours chargés')
+          } else if(tab==='levels'){
+            // levels may be protected
+            const data = await fetchJson('/api/levels')
+            contentEl.innerHTML = renderTable(Array.isArray(data.levels) ? data.levels : data)
+            setStatus('OK — niveaux chargés')
+          } else if(tab==='students'){
+            const data = await fetchJson('/api/students')
+            contentEl.innerHTML = renderTable(Array.isArray(data.students) ? data.students : data)
+            setStatus('OK — étudiants chargés')
+          } else if(tab==='users'){
+            // try different endpoints
+            try{
+              const data = await fetchJson('/api/users')
+              contentEl.innerHTML = renderTable(Array.isArray(data.users) ? data.users : data)
+              setStatus('OK — users chargés')
+            }catch(e){
+              contentEl.innerHTML = '<div class="small">/api/users non disponible. Essayez /api/students ou fournissez un token.</div>'
+              setStatus('Erreur récupération users (peut être protégé)', true)
+            }
+          } else if(tab==='raw'){
+            contentEl.innerHTML = '<div class="small">Entrez un chemin relatif (ex: /api/courses) et cliquez Charger</div>'
+            contentEl.innerHTML += '<div style="margin-top:8px"><input id="rawPath" type="text" value="/api/courses" style="width:60%" /> <button id="rawLoad">Charger</button></div>'
+            document.getElementById('rawLoad').addEventListener('click', async ()=>{
+              const p = document.getElementById('rawPath').value
+              try{
+                const d = await fetchJson(p)
+                contentEl.innerHTML = renderJson(d)
+                setStatus('OK — raw')
+              }catch(err){
+                contentEl.innerHTML = '<div class="error">Erreur: '+escapeHtml(JSON.stringify(err))+'</div>'
+                setStatus('Erreur', true)
+              }
+            })
+            setStatus('Mode raw actif')
+          }
+        }catch(err){
+          console.error(err)
+          // err may be fetch error or object {status,data}
+          if(err && err.status){
+            setStatus('Erreur HTTP '+err.status + ' — ' + (err.data && err.data.error ? err.data.error : ''), true)
+            contentEl.innerHTML = '<div class="error">HTTP '+err.status+' — ' + escapeHtml(typeof err.data === 'string' ? err.data : JSON.stringify(err.data)) + '</div>'
+          } else {
+            setStatus('Erreur: ' + (err.message||err), true)
+            contentEl.innerHTML = '<div class="error">'+escapeHtml(err.message || String(err))+'</div>'
+          }
+        }
+      }
+
+      // initial load
+      loadTab('courses')
+    })();
+  </script>
+</body>
+</html>

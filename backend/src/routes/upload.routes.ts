@@ -1,14 +1,14 @@
 import { Router, Request, Response } from 'express';
-import { body, param, validationResult } from 'express-validator';
-import { Course, CourseResource } from '../models';
+import { param, validationResult } from 'express-validator';
+import { Level, Resource, User } from '../models';
 import { authenticate, isTeacher } from '../middlewares/auth.middleware';
 import { uploadToS3, getSignedDownloadUrl, deleteFileFromS3, extractS3KeyFromUrl } from '../config/s3';
 
 const router = Router();
 
-// POST /api/courses/:id/upload - Upload un fichier vers S3 et créer une ressource
+// POST /api/levels/:id/upload - Upload un fichier vers S3 et créer une ressource pour le niveau
 router.post(
-  '/:id/upload',
+  '/levels/:id/upload',
   authenticate,
   isTeacher,
   [param('id').isInt()],
@@ -24,30 +24,22 @@ router.post(
         return res.status(400).json({ error: 'Aucun fichier fourni' });
       }
 
-      const courseId = parseInt(req.params.id, 10);
-      const { title, description, levelId, category, isVisible } = req.body;
+      const levelId = parseInt(req.params.id, 10);
+      const { title, description, category, isVisible } = req.body;
 
       if (!title) {
         return res.status(400).json({ error: 'Le titre est requis' });
       }
 
-      // Vérifier que le cours existe et appartient au teacher
-      const course = await Course.findByPk(courseId);
-      if (!course) {
-        return res.status(404).json({ error: 'Cours non trouvé' });
-      }
-      if (course.teacherId !== req.userId) {
-        return res.status(403).json({ error: 'Vous ne pouvez pas ajouter de ressource à ce cours' });
-      }
+      const level = await Level.findByPk(levelId);
+      if (!level) return res.status(404).json({ error: 'Niveau non trouvé' });
 
-      // Créer la ressource avec les infos du fichier uploadé
-      const fileInfo = req.file as any; // multer-s3 ajoute des propriétés spécifiques
-      const resource = await CourseResource.create({
-        courseId,
-        levelId: levelId ? parseInt(levelId, 10) : undefined,
+      const fileInfo = req.file as any;
+      const resource = await Resource.create({
+        levelId,
         title,
         description: description || '',
-        fileUrl: fileInfo.location || fileInfo.key, // URL S3 ou clé
+        fileUrl: fileInfo.location || fileInfo.key,
         fileType: fileInfo.mimetype,
         category: category || 'notes',
         isVisible: isVisible === 'true' || isVisible === true
@@ -64,7 +56,7 @@ router.post(
         }
       });
     } catch (error: any) {
-      console.error('Erreur POST /api/courses/:id/upload', error);
+      console.error('Erreur POST /api/levels/:id/upload', error);
       res.status(500).json({ error: 'Erreur lors de l\'upload', details: error.message });
     }
   }
@@ -74,24 +66,27 @@ router.post(
 router.get('/resources/:id/download', authenticate, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const resource = await CourseResource.findByPk(id);
+    const resource = await Resource.findByPk(id);
 
-    if (!resource) {
-      return res.status(404).json({ error: 'Ressource non trouvée' });
+    if (!resource) return res.status(404).json({ error: 'Ressource non trouvée' });
+
+    // Si utilisateur étudiant, vérifier le niveau et la visibilité
+    const userId = req.userId;
+    if (userId) {
+      const user = await User.findByPk(userId);
+      if (user && user.role === 'student') {
+        if (!resource.isVisible) return res.status(404).json({ error: 'Ressource non trouvée' });
+        if (user.levelId !== resource.levelId) return res.status(403).json({ error: 'Accès refusé' });
+      }
     }
 
-    // Générer une URL signée pour télécharger le fichier
     const fileKey = extractS3KeyFromUrl(resource.fileUrl);
     const signedUrl = await getSignedDownloadUrl(fileKey);
 
     res.json({
-      resource: {
-        id: resource.id,
-        title: resource.title,
-        fileType: resource.fileType
-      },
+      resource: { id: resource.id, title: resource.title, fileType: resource.fileType },
       downloadUrl: signedUrl,
-      expiresIn: 3600 // secondes
+      expiresIn: 3600
     });
   } catch (error: any) {
     console.error('Erreur GET /api/resources/:id/download', error);
@@ -99,37 +94,21 @@ router.get('/resources/:id/download', authenticate, async (req: Request, res: Re
   }
 });
 
-// DELETE /api/resources/:id/file - Supprimer une ressource et son fichier S3
+// DELETE /api/resources/:id/file - Supprimer une ressource et son fichier S3 (teacher)
 router.delete('/resources/:id/file', authenticate, isTeacher, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const resource = await CourseResource.findByPk(id);
+    const resource = await Resource.findByPk(id);
+    if (!resource) return res.status(404).json({ error: 'Ressource non trouvée' });
 
-    if (!resource) {
-      return res.status(404).json({ error: 'Ressource non trouvée' });
-    }
-
-    // Vérifier que le teacher est propriétaire du cours
-    const course = await Course.findByPk(resource.courseId);
-    if (!course) {
-      return res.status(404).json({ error: 'Cours parent non trouvé' });
-    }
-    if (course.teacherId !== req.userId) {
-      return res.status(403).json({ error: 'Vous ne pouvez pas supprimer cette ressource' });
-    }
-
-    // Supprimer le fichier de S3
     try {
       const fileKey = extractS3KeyFromUrl(resource.fileUrl);
       await deleteFileFromS3(fileKey);
     } catch (s3Error) {
       console.warn('Erreur lors de la suppression du fichier S3:', s3Error);
-      // Continuer même si la suppression S3 échoue (fichier peut déjà être supprimé)
     }
 
-    // Supprimer la ressource de la base de données
     await resource.destroy();
-
     res.json({ message: 'Ressource et fichier supprimés' });
   } catch (error: any) {
     console.error('Erreur DELETE /api/resources/:id/file', error);
@@ -138,4 +117,3 @@ router.delete('/resources/:id/file', authenticate, isTeacher, async (req: Reques
 });
 
 export const uploadRoutes = router;
-

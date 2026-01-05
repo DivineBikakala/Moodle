@@ -1,62 +1,53 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import sequelize from '../config/database';
 
-// Attributs du modèle CourseResource
-interface CourseResourceAttributes {
+// Attributs du modèle Resource
+interface ResourceAttributes {
   id: number;
-  courseId: number;
-  levelId?: number;
+  levelId: number;
   title: string;
-  description: string;
+  description?: string;
   fileUrl: string;
-  fileType: string;
-  category: 'notes' | 'exercices' | 'examen';
+  fileType: string; // previously mimeType / fileType
+  category: 'notes' | 'exercices' | 'examen' | 'audio';
   isVisible: boolean;
-  uploadedAt?: Date;
+  createdAt?: Date;
 }
 
 // Attributs optionnels lors de la création
-interface CourseResourceCreationAttributes extends Optional<CourseResourceAttributes, 'id'> {}
+interface ResourceCreationAttributes extends Optional<ResourceAttributes, 'id' | 'description' | 'isVisible'> {}
 
-// Classe du modèle CourseResource
-class CourseResource extends Model<CourseResourceAttributes, CourseResourceCreationAttributes> 
-  implements CourseResourceAttributes {
+// Classe du modèle Resource
+class Resource extends Model<ResourceAttributes, ResourceCreationAttributes> implements ResourceAttributes {
   public id!: number;
-  public courseId!: number;
-  public levelId?: number;
+  public levelId!: number;
   public title!: string;
-  public description!: string;
+  public description?: string;
   public fileUrl!: string;
   public fileType!: string;
-  public category!: 'notes' | 'exercices' | 'examen';
+  public category!: 'notes' | 'exercices' | 'examen' | 'audio';
   public isVisible!: boolean;
 
-  public readonly uploadedAt!: Date;
+  public readonly createdAt!: Date;
 }
 
 // Initialisation du modèle
-CourseResource.init(
+Resource.init(
   {
     id: {
       type: DataTypes.INTEGER,
       autoIncrement: true,
       primaryKey: true
     },
-    courseId: {
+    levelId: {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'courses',
-        key: 'id'
-      }
-    },
-    levelId: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
         model: 'levels',
         key: 'id'
-      }
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE'
     },
     title: {
       type: DataTypes.STRING(255),
@@ -67,15 +58,15 @@ CourseResource.init(
       allowNull: true
     },
     fileUrl: {
-      type: DataTypes.STRING(500),
+      type: DataTypes.STRING(1000),
       allowNull: false
     },
     fileType: {
-      type: DataTypes.STRING(50),
+      type: DataTypes.STRING(100),
       allowNull: false
     },
     category: {
-      type: DataTypes.ENUM('notes', 'exercices', 'examen'),
+      type: DataTypes.ENUM('notes', 'exercices', 'examen', 'audio'),
       allowNull: false,
       defaultValue: 'notes'
     },
@@ -83,18 +74,15 @@ CourseResource.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true
-    },
-    uploadedAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW
     }
   },
   {
     sequelize,
-    tableName: 'course_resources',
-    timestamps: false
+    tableName: 'resources',
+    timestamps: true,
+    createdAt: 'createdAt',
+    updatedAt: false
   }
 );
 
-export default CourseResource;
+export default Resource;

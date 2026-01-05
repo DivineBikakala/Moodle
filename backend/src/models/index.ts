@@ -1,7 +1,5 @@
 import User from './User';
-import Course from './Course';
 import CourseResource from './CourseResource';
-import Enrollment from './Enrollment';
 import Level from './Level';
 import Schedule from './Schedule';
 
@@ -9,72 +7,19 @@ import Schedule from './Schedule';
 // Fonction pour initialiser toutes les associations
 // Elle doit être appelée APRÈS que tous les modèles soient chargés
 export const initializeAssociations = () => {
-  // Un enseignant (User) peut avoir plusieurs cours (Course)
-  User.hasMany(Course, {
-    foreignKey: 'teacherId',
-    as: 'courses'
-  });
-
-  Course.belongsTo(User, {
-    foreignKey: 'teacherId',
-    as: 'teacher'
-  });
-
-  // Un cours (Course) peut avoir plusieurs ressources (CourseResource)
-  Course.hasMany(CourseResource, {
-    foreignKey: 'courseId',
+  // Level -> Resources
+  Level.hasMany(CourseResource, {
+    foreignKey: 'levelId',
     as: 'resources'
   });
 
-  CourseResource.belongsTo(Course, {
-    foreignKey: 'courseId',
-    as: 'course'
-  });
-
-  // Relation many-to-many entre User (students) et Course via Enrollment
-  User.belongsToMany(Course, {
-    through: Enrollment,
-    foreignKey: 'studentId',
-    as: 'enrolledCourses'
-  });
-
-  Course.belongsToMany(User, {
-    through: Enrollment,
-    foreignKey: 'courseId',
-    as: 'students'
-  });
-
-  // Relations directes avec Enrollment pour plus de flexibilité
-  User.hasMany(Enrollment, {
-    foreignKey: 'studentId',
-    as: 'enrollments'
-  });
-
-  Enrollment.belongsTo(User, {
-    foreignKey: 'studentId',
-    as: 'student'
-  });
-
-  Course.hasMany(Enrollment, {
-    foreignKey: 'courseId',
-    as: 'enrollments'
-  });
-
-  Enrollment.belongsTo(Course, {
-    foreignKey: 'courseId',
-    as: 'course'
-  });
-
-  // Un niveau (Level) peut avoir plusieurs ressources (CourseResource)
-
-  Level.hasMany(Course, {
+  CourseResource.belongsTo(Level, {
     foreignKey: 'levelId',
-    as: 'courses'
+    as: 'level'
   });
 
-
-
-  Course.belongsTo(Level, {
+  // User belongsTo Level (students)
+  User.belongsTo(Level, {
     foreignKey: 'levelId',
     as: 'level'
   });
@@ -95,18 +40,14 @@ export const initializeAssociations = () => {
 // Export de tous les modèles
 export {
   User,
-  Course,
-  CourseResource,
-  Enrollment,
   Level,
-  Schedule
+  Schedule,
+  CourseResource as Resource
 };
 
 export default {
   User,
-  Course,
-  CourseResource,
-  Enrollment,
   Level,
-  Schedule
+  Schedule,
+  Resource: CourseResource
 };

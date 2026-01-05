@@ -12,7 +12,7 @@ interface UserAttributes {
   lastName: string;
   phone?: string;
   role: 'teacher' | 'student';
-  level?: number;
+  levelId?: number | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -30,7 +30,7 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public lastName!: string;
   public phone?: string;
   public role!: 'teacher' | 'student';
-  public level?: number;
+  public levelId?: number | null;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -88,10 +88,14 @@ User.init(
       allowNull: false,
       defaultValue: 'student'
     },
-    level: {
+    levelId: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      defaultValue: 0
+      references: {
+        model: 'levels',
+        key: 'id'
+      },
+      field: 'level' // map to existing DB column named 'level' to avoid migration
     }
   },
   {

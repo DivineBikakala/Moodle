@@ -69,8 +69,9 @@ let levels: Level[] = [];
 let schedules: Schedule[] = [];
 let selectedStudent: Student | null = null;
 let selectedLevel: Level | null = null;
-let currentTab: 'courses' | 'students' | 'levels' | 'schedule' = 'courses';
+let currentTab: 'courses' | 'students' | 'levels' | 'schedule' = 'levels';
 
+const BUILD_TAG = 'build-' + new Date().toISOString();
 
 // Initialize app
 function init() {
@@ -382,16 +383,14 @@ function showDashboard() {
           </div>
           <div class="navbar-right">
             <span class="user-info">${currentUser?.firstName} ${currentUser?.lastName}</span>
+            <div style="font-size:12px; color: rgba(255,255,255,0.85); margin-right:8px;">${BUILD_TAG}</div>
+            <button id="btn-force-reload" title="Vider le cache et recharger" class="btn btn-secondary" style="padding:6px 10px; font-size:12px; margin-right:8px;">Rafraîchir</button>
             <button id="btn-logout" class="btn-logout">Déconnexion</button>
           </div>
         </div>
       </nav>
       
       <div class="nav-tabs">
-        <button class="nav-tab ${currentTab === 'courses' ? 'active' : ''}" data-tab="courses">
-          <span class="nav-tab-icon">📖</span>
-          Cours
-        </button>
         <button class="nav-tab ${currentTab === 'students' ? 'active' : ''}" data-tab="students">
           <span class="nav-tab-icon">👥</span>
           Étudiants
@@ -411,6 +410,18 @@ function showDashboard() {
   `;
 
   document.getElementById('btn-logout')!.addEventListener('click', logout);
+  document.getElementById('btn-force-reload')!.addEventListener('click', async () => {
+    try {
+      // try to clear cache storage (service workers / caches)
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+    } catch (e) { console.warn('Cache clear failed', e); }
+    // also clear app-level cached items (optionally)
+    // location.reload(true) not supported; use reload then fallback
+    setTimeout(() => location.reload(), 200);
+  });
 
   document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.addEventListener('click', (e) => {
@@ -423,6 +434,9 @@ function showDashboard() {
 }
 
 function switchTab(tab: typeof currentTab) {
+  // Close any open modals to prevent stacking when switching views
+  document.querySelectorAll('.modal').forEach(m => m.remove());
+
   currentTab = tab;
   document.querySelectorAll('.nav-tab').forEach(t => {
     if (t.getAttribute('data-tab') === tab) {
@@ -436,9 +450,6 @@ function switchTab(tab: typeof currentTab) {
 
 function loadTabContent(tab: typeof currentTab) {
   switch (tab) {
-    case 'courses':
-      loadCourses();   // IMPORTANT : ici c’est bien loadCourses()
-      break;
     case 'students':
       loadStudents();
       break;
@@ -447,6 +458,9 @@ function loadTabContent(tab: typeof currentTab) {
       break;
     case 'schedule':
       loadSchedules();
+      break;
+    default:
+      loadLevels();
       break;
   }
 }
@@ -537,7 +551,7 @@ function renderStudents() {
           <div class="list-item-title">${student.firstName} ${student.lastName}</div>
           <div class="list-item-subtitle">
             @${student.username} • ${student.email}${student.phone ? ' • ' + student.phone : ''} • 
-            <span class="badge-level">Niveau ${student.level || 0}</span>
+            <span class="badge-level">${ sanitizeName((levels.find(l => l.id === (student as any).levelId) || { name: 'N/A' }).name) }</span>
           </div>
         </div>
         <div class="list-item-actions">
@@ -577,14 +591,15 @@ function renderLevels() {
     return;
   }
 
-  levelsList.innerHTML = levels.map(level => `
+  levelsList.innerHTML = levels.map((level, idx) => `
     <div class="card">
       <div class="card-header">
-        <h3 class="card-title">${level.name}</h3>
-        <span class="badge-level">Niveau ${level.order}</span>
+        <h3 class="card-title">${sanitizeName(level.name)}</h3>
+        <span class="badge-level">Niveau ${idx + 1}</span>
       </div>
       <p class="card-description">${level.description || 'Pas de description'}</p>
       <div class="card-actions">
+        <button class="btn btn-sm btn-primary" onclick="manageResources(${level.id})">🗂️ Gérer les ressources</button>
         <button class="btn btn-sm btn-danger" onclick="deleteLevelHandler(${level.id})">🗑️ Supprimer</button>
       </div>
     </div>
@@ -600,7 +615,7 @@ function renderSchedules() {
         <h2 class="section-title">Mon Horaire</h2>
         <p class="section-subtitle">Gérez votre emploi du temps et vos cours programmés</p>
       </div>
-      <button id="btn-add-schedule" class="btn btn-accent">+ Nouveau cours</button>
+      <button id="btn-add-schedule" class="btn btn-accent">+ Nouveau</button>
     </div>
     <div id="schedules-list"></div>
   `;
@@ -609,7 +624,7 @@ function renderSchedules() {
 
   const schedulesList = document.getElementById('schedules-list')!;
 
-  if (schedules.length === 0) {
+  if (!schedules || schedules.length === 0) {
     schedulesList.innerHTML = `
       <div class="empty-state">
         <h3>Aucun cours programmé</h3>
@@ -619,91 +634,228 @@ function renderSchedules() {
     return;
   }
 
-  schedulesList.innerHTML = schedules
-      .map(schedule => `
-      <div class="list-item">
-        <div class="list-item-content">
-          <div class="list-item-title">${schedule.title}</div>
-          <div class="list-item-subtitle">
-            📅 ${formatDate(schedule.date)} • ⏰ ${schedule.startTime} - ${schedule.endTime}
-            ${schedule.location ? ' • 📍 ' + schedule.location : ''}
-          </div>
-          ${schedule.description ? `<div style="margin-top: 8px; font-size: 13px;">${schedule.description}</div>` : ''}
-        </div>
-        <div class="list-item-actions">
-          <button class="btn btn-sm btn-danger" onclick="deleteScheduleHandler(${schedule.id})">🗑️ Supprimer</button>
-        </div>
+  schedulesList.innerHTML = schedules.map(sch => `
+    <div class="list-item">
+      <div class="list-item-content">
+        <div class="list-item-title">${sch.title}</div>
+        <div class="list-item-subtitle">📅 ${formatDate(sch.date)} • ⏰ ${sch.startTime} - ${sch.endTime} ${sch.location ? '• 📍 ' + sch.location : ''}</div>
+        ${sch.description ? `<div style="margin-top:8px; font-size:13px;">${sch.description}</div>` : ''}
       </div>
-    `)
-      .join('');
+      <div class="list-item-actions">
+        <button class="btn btn-sm btn-danger" onclick="deleteScheduleHandler(${sch.id})">🗑️ Supprimer</button>
+      </div>
+    </div>
+  `).join('');
 }
 
-// Modals
-function showCourseModal(course?: Course) {
-  const isEdit = !!course;
+
+// New: manage resources UI
+// Utility to close modal by id (safely)
+function closeModal(id: string) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+// Sanitize names that may be URL-encoded (e.g., 'Level%201')
+function sanitizeName(raw: string): string {
+  if (!raw || typeof raw !== 'string') return raw;
+  try {
+    // try decodeURIComponent first
+    const dec = decodeURIComponent(raw);
+    if (dec && dec !== raw) return dec;
+  } catch (e) {
+    // ignore
+  }
+  // fallback replacements
+  return raw.replace(/%20/g, ' ').replace(/\+/g, ' ');
+}
+
+(window as any).manageResources = async function(levelId: number) {
+  try {
+    const token = authToken;
+    const res = await fetch(`${API_URL}/levels/${levelId}` , { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+    if (!res.ok) {
+      const txt = await res.text().catch(()=>null);
+      throw new Error(txt || 'Impossible de charger le niveau');
+    }
+    const data = await res.json();
+    const level = data.level;
+    let levelName = level?.name ?? `Level ${levelId}`;
+    levelName = sanitizeName(levelName);
+    const resources = (level && level.resources) || [];
+
+    const container = document.getElementById('tab-content')!;
+    container.innerHTML = `
+      <div class="section-header">
+        <div class="left">
+          <button id="btn-back-levels" class="btn btn-secondary">← Retour</button>
+          <div style="margin-left:12px">
+            <h2 class="section-title">Ressources — ${levelName}</h2>
+            <p class="section-subtitle">Gérez les ressources pour ce niveau</p>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="btn-add-resource" class="btn btn-accent">+ Ajouter une ressource</button>
+        </div>
+      </div>
+      <div id="resources-list"></div>
+    `;
+
+    document.getElementById('btn-back-levels')!.addEventListener('click', () => { switchTab('levels'); });
+    document.getElementById('btn-add-resource')!.addEventListener('click', () => showAddResourceModal(levelId));
+
+    const list = document.getElementById('resources-list')!;
+    if (resources.length === 0) {
+      list.innerHTML = `<div class="empty-state"><h3>Aucune ressource</h3><p>Ajoutez des ressources pour ce niveau</p></div>`;
+      return;
+    }
+
+    list.innerHTML = resources.map((r: any) => `
+      <div class="list-item">
+        <div class="list-item-content">
+          <div class="list-item-title">${r.title} ${r.isVisible ? '<span class="badge-published">(Publié)</span>' : '<span class="badge-draft">(Masqué)</span>'}</div>
+          <div class="list-item-subtitle">${r.category} • ${r.fileType}</div>
+        </div>
+        <div class="list-item-actions">
+          <button class="btn btn-sm" onclick="window.open('${r.fileUrl}','_blank')">⬇️ Télécharger</button>
+          <button class="btn btn-sm" onclick="toggleResourceVisibility(${r.id}, ${r.isVisible})">${r.isVisible ? 'Masquer' : 'Publier'}</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteResource(${r.id})">🗑️ Supprimer</button>
+        </div>
+      </div>
+    `).join('');
+
+  } catch (e: any) {
+    alert('Erreur: ' + (e.message || e));
+  }
+};
+
+// show add resource modal
+function showAddResourceModal(levelId: number) {
+  // require login
+  if (!authToken) {
+    alert('Veuillez vous connecter pour ajouter une ressource.');
+    return;
+  }
+
+  // Ensure no duplicate resource modal
+  closeModal('resource-modal');
 
   const modalHTML = `
-    <div class="modal" id="course-modal">
+    <div class="modal" id="resource-modal">
       <div class="modal-content">
         <div class="modal-header">
-          <h2>${isEdit ? 'Modifier le cours' : 'Nouveau cours'}</h2>
-          <button class="btn-close" onclick="closeModal('course-modal')">&times;</button>
+          <h2>Ajouter une ressource</h2>
+          <button class="btn-close" id="resource-modal-close">&times;</button>
         </div>
         <div class="modal-body">
-          <div id="modal-error"></div>
-          <form id="course-form">
+          <div id="modal-error" class="error-message hidden"></div>
+          <form id="resource-form">
             <div class="form-group">
-              <label class="form-label">Titre *</label>
-              <input type="text" id="course-title" class="form-input" value="${course?.title || ''}" required />
+              <label class="form-label">Titre</label>
+              <input type="text" id="resource-title" class="form-input" required />
             </div>
             <div class="form-group">
-              <label class="form-label">Description *</label>
-              <textarea id="course-description" class="form-textarea" required>${course?.description || ''}</textarea>
+              <label class="form-label">Description</label>
+              <textarea id="resource-description" class="form-textarea"></textarea>
             </div>
             <div class="form-group">
-              <label class="form-label">Niveau</label>
-              <select id="course-level" class="form-input" required>
-                <option value="">Sélectionner un niveau</option>
-                ${levels
-      .map(
-          level => `
-                  <option value="${level.id}" ${(course as any)?.levelId === level.id ? 'selected' : ''}>
-                    ${level.name}
-                  </option>
-                `
-      )
-      .join('')}
+              <label class="form-label">URL du fichier</label>
+              <input type="url" id="resource-fileUrl" class="form-input" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Type de fichier (ex: application/pdf)</label>
+              <input type="text" id="resource-fileType" class="form-input" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Catégorie</label>
+              <select id="resource-category" class="form-input">
+                <option value="notes">Notes</option>
+                <option value="exercices">Exercices</option>
+                <option value="examen">Examen</option>
+                <option value="audio">Audio</option>
               </select>
-              ${
-      levels.length === 0
-          ? '<small style="color: var(--gray-500); font-size: 12px;">Aucun niveau créé. Allez dans l\'onglet "Niveaux" pour en créer.</small>'
-          : ''
-  }
             </div>
             <div class="form-group">
-              <label style="display: flex; align-items: center; cursor: pointer;">
-                <input
-                  type="checkbox"
-                  id="course-published"
-                  class="form-checkbox"
-                  ${course?.status === 'published' ? 'checked' : ''}
-                />
-                &nbsp;Publier ce cours
-              </label>
+              <label style="display:flex; align-items:center; cursor:pointer;"><input type="checkbox" id="resource-visible" checked /> &nbsp;Visible</label>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" onclick="closeModal('course-modal')">Annuler</button>
-              <button type="submit" class="btn btn-primary">${isEdit ? 'Enregistrer' : 'Créer'}</button>
+              <button type="button" class="btn btn-secondary" id="resource-cancel">Annuler</button>
+              <button type="submit" class="btn btn-primary">Ajouter</button>
             </div>
           </form>
         </div>
       </div>
     </div>
   `;
-
   document.body.insertAdjacentHTML('beforeend', modalHTML);
-  document.getElementById('course-form')!.addEventListener('submit', (e) => handleCourseSubmit(e, course));
+
+  const modalEl = document.getElementById('resource-modal') as HTMLElement;
+  // store level id
+  modalEl.setAttribute('data-level-id', String(levelId));
+
+  // Close handlers
+  const closeBtn = document.getElementById('resource-modal-close');
+  const cancelBtn = document.getElementById('resource-cancel');
+  if (closeBtn) closeBtn.addEventListener('click', () => closeModal('resource-modal'));
+  if (cancelBtn) cancelBtn.addEventListener('click', () => closeModal('resource-modal'));
+
+  // Submit handler (one-time to avoid stacking listeners)
+  const form = document.getElementById('resource-form') as HTMLFormElement;
+  const errorDiv = document.getElementById('modal-error') as HTMLElement;
+  const submitHandler = async (e: Event) => {
+    e.preventDefault();
+    try {
+      const title = (document.getElementById('resource-title') as HTMLInputElement).value.trim();
+      const description = (document.getElementById('resource-description') as HTMLTextAreaElement).value.trim();
+      const fileUrl = (document.getElementById('resource-fileUrl') as HTMLInputElement).value.trim();
+      const fileType = (document.getElementById('resource-fileType') as HTMLInputElement).value.trim();
+      const category = (document.getElementById('resource-category') as HTMLSelectElement).value;
+      const isVisible = (document.getElementById('resource-visible') as HTMLInputElement).checked;
+      if (!title || !fileUrl || !fileType) throw new Error('Veuillez remplir le titre, l\'URL et le type de fichier');
+      const levelIdAttr = modalEl.getAttribute('data-level-id');
+      const levelIdUsed = levelIdAttr ? parseInt(levelIdAttr,10) : levelId;
+      const payload = { title, description, fileUrl, fileType, category, isVisible };
+      const token = authToken;
+      const res = await fetch(`${API_URL}/levels/${levelIdUsed}/resources`, { method: 'POST', headers: { 'Content-Type':'application/json', ...(token?{Authorization:'Bearer '+token}:{}) }, body: JSON.stringify(payload) });
+      const text = await res.text();
+      if (!res.ok) {
+        try { const json = JSON.parse(text); errorDiv.textContent = json.error || JSON.stringify(json); } catch(_) { errorDiv.textContent = text || 'Erreur création ressource'; }
+        errorDiv.classList.remove('hidden');
+        return;
+      }
+      // close modal and refresh resources list for the same level
+      closeModal('resource-modal');
+      await manageResources(levelIdUsed);
+    } catch (e:any) {
+      errorDiv.classList.remove('hidden');
+      errorDiv.textContent = e.message || String(e);
+    } finally {
+      form.removeEventListener('submit', submitHandler);
+    }
+  };
+  form.addEventListener('submit', submitHandler);
 }
+
+// toggle visibility
+(window as any).toggleResourceVisibility = async function(resourceId: number, currentlyVisible: boolean) {
+  try {
+    const token = authToken;
+    const res = await fetch(`${API_URL}/resources/${resourceId}`, { method: 'PATCH', headers: { 'Content-Type':'application/json', ...(token?{Authorization:'Bearer '+token}:{}) }, body: JSON.stringify({ isVisible: !currentlyVisible }) });
+    if (!res.ok) throw new Error('Erreur lors de la mise à jour');
+    // refresh current manage view by reloading levels list and reopening selected level
+    loadLevels();
+  } catch (e:any) { alert('Erreur: ' + (e.message||e)); }
+};
+
+(window as any).deleteResource = async function(resourceId: number) {
+  if (!confirm('Supprimer la ressource ?')) return;
+  try {
+    const token = authToken;
+    const res = await fetch(`${API_URL}/resources/${resourceId}`, { method: 'DELETE', headers: { ...(token?{Authorization:'Bearer '+token}:{}) } });
+    if (!res.ok) throw new Error('Erreur suppression');
+    loadLevels();
+  } catch (e:any) { alert('Erreur: ' + (e.message||e)); }
+};
 
 function showStudentModal(student?: Student) {
   const isEdit = !!student;
@@ -755,8 +907,8 @@ function showStudentModal(student?: Student) {
                 ${levels
       .map(
           level => `
-                  <option value="${level.id}" ${student?.level === level.id ? 'selected' : ''}>
-                    ${level.name}
+                  <option value="${level.id}" ${ (student as any)?.levelId === level.id ? 'selected' : '' }>
+                    ${sanitizeName(level.name)}
                   </option>
                 `
       )
@@ -782,145 +934,6 @@ function showStudentModal(student?: Student) {
   document.getElementById('student-form')!.addEventListener('submit', (e) => handleStudentSubmit(e, student));
 }
 
-function showLevelModal() {
-  const modalHTML = `
-    <div class="modal" id="level-modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>Nouveau niveau</h2>
-          <button class="btn-close" onclick="closeModal('level-modal')">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div id="modal-error"></div>
-          <form id="level-form">
-            <div class="form-group">
-              <label class="form-label">Nom du niveau</label>
-              <input type="text" id="level-name" class="form-input" placeholder="Ex: Niveau Débutant" required />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Description</label>
-              <textarea id="level-description" class="form-textarea" placeholder="Description du niveau"></textarea>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" onclick="closeModal('level-modal')">Annuler</button>
-              <button type="submit" class="btn btn-primary">Créer</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.insertAdjacentHTML('beforeend', modalHTML);
-  document.getElementById('level-form')!.addEventListener('submit', handleLevelSubmit);
-}
-
-function showScheduleModal() {
-  const modalHTML = `
-    <div class="modal" id="schedule-modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>Nouveau cours programmé</h2>
-          <button class="btn-close" onclick="closeModal('schedule-modal')">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div id="modal-error"></div>
-          <form id="schedule-form">
-            <div class="form-group">
-              <label class="form-label">Titre du cours</label>
-              <input type="text" id="schedule-title" class="form-input" required />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Description (optionnelle)</label>
-              <textarea id="schedule-description" class="form-textarea"></textarea>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Date</label>
-              <input type="date" id="schedule-date" class="form-input" required />
-            </div>
-            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
-              <div class="form-group">
-                <label class="form-label">Heure de début</label>
-                <input type="time" id="schedule-startTime" class="form-input" required />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Heure de fin</label>
-                <input type="time" id="schedule-endTime" class="form-input" required />
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Lieu (optionnel)</label>
-              <input type="text" id="schedule-location" class="form-input" placeholder="Ex: Salle 101" />
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" onclick="closeModal('schedule-modal')">Annuler</button>
-              <button type="submit" class="btn btn-primary">Créer</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.insertAdjacentHTML('beforeend', modalHTML);
-  document.getElementById('schedule-form')!.addEventListener('submit', handleScheduleSubmit);
-}
-
-function closeModal(modalId: string) {
-  document.getElementById(modalId)?.remove();
-}
-
-// Event handlers
-async function handleLogin(e: Event) {
-  e.preventDefault();
-  const email = (document.getElementById('email') as HTMLInputElement).value;
-  const password = (document.getElementById('password') as HTMLInputElement).value;
-  const errorDiv = document.getElementById('auth-error')!;
-
-  try {
-    await login(email, password);
-  } catch (error: any) {
-    errorDiv.innerHTML = `<div class="error-message">${error.message}</div>`;
-  }
-}
-
-async function handleRegister(e: Event) {
-  e.preventDefault();
-  const firstName = (document.getElementById('firstName') as HTMLInputElement).value;
-  const lastName = (document.getElementById('lastName') as HTMLInputElement).value;
-  const username = (document.getElementById('username') as HTMLInputElement).value;
-  const email = (document.getElementById('email') as HTMLInputElement).value;
-  const password = (document.getElementById('password') as HTMLInputElement).value;
-  const errorDiv = document.getElementById('auth-error')!;
-
-  try {
-    await register(email, username, password, firstName, lastName);
-  } catch (error: any) {
-    errorDiv.innerHTML = `<div class="error-message">${error.message}</div>`;
-  }
-}
-
-async function handleCourseSubmit(e: Event, course?: Course) {
-  e.preventDefault();
-  const title = (document.getElementById('course-title') as HTMLInputElement).value;
-  const description = (document.getElementById('course-description') as HTMLTextAreaElement).value;
-  const levelValue = (document.getElementById('course-level') as HTMLSelectElement).value;
-  const levelId = levelValue ? parseInt(levelValue, 10) : undefined;
-  const isPublished = (document.getElementById('course-published') as HTMLInputElement).checked;
-  const errorDiv = document.getElementById('modal-error')!;
-
-  try {
-    if (course) {
-      await updateCourse(course.id, title, description, levelId, isPublished);
-    } else {
-      await createCourse(title, description, levelId, isPublished);
-    }
-    closeModal('course-modal');
-  } catch (error: any) {
-    errorDiv.innerHTML = `<div class="error-message">${error.message}</div>`;
-  }
-}
-
 async function handleStudentSubmit(e: Event, student?: Student) {
   e.preventDefault();
   const errorDiv = document.getElementById('modal-error')!;
@@ -934,7 +947,7 @@ async function handleStudentSubmit(e: Event, student?: Student) {
       username: (document.getElementById('student-username') as HTMLInputElement).value,
       email: (document.getElementById('student-email') as HTMLInputElement).value,
       phone: (document.getElementById('student-phone') as HTMLInputElement).value || undefined,
-      level: levelValue ? parseInt(levelValue, 10) : undefined,
+      levelId: levelValue ? parseInt(levelValue, 10) : undefined,
     };
 
     if (!student) {
@@ -949,79 +962,6 @@ async function handleStudentSubmit(e: Event, student?: Student) {
   }
 }
 
-async function handleLevelSubmit(e: Event) {
-  e.preventDefault();
-  const name = (document.getElementById('level-name') as HTMLInputElement).value;
-  const description = (document.getElementById('level-description') as HTMLTextAreaElement).value;
-  const errorDiv = document.getElementById('modal-error')!;
-
-  try {
-    await createLevel(name, description);
-    closeModal('level-modal');
-  } catch (error: any) {
-    errorDiv.innerHTML = `<div class="error-message">${error.message}</div>`;
-  }
-}
-
-async function handleScheduleSubmit(e: Event) {
-  e.preventDefault();
-  const errorDiv = document.getElementById('modal-error')!;
-
-  try {
-    const scheduleData = {
-      title: (document.getElementById('schedule-title') as HTMLInputElement).value,
-      description: (document.getElementById('schedule-description') as HTMLTextAreaElement).value || undefined,
-      date: (document.getElementById('schedule-date') as HTMLInputElement).value,
-      startTime: (document.getElementById('schedule-startTime') as HTMLInputElement).value,
-      endTime: (document.getElementById('schedule-endTime') as HTMLInputElement).value,
-      location: (document.getElementById('schedule-location') as HTMLInputElement).value || undefined,
-    };
-
-    await createSchedule(scheduleData);
-    closeModal('schedule-modal');
-  } catch (error: any) {
-    errorDiv.innerHTML = `<div class="error-message">${error.message}</div>`;
-  }
-}
-
-// Global functions for onclick handlers
-(window as any).editCourse = (id: number) => {
-  const course = courses.find(c => c.id === id);
-  if (course) showCourseModal(course);
-};
-
-(window as any).deleteCourseHandler = (id: number) => {
-  deleteCourse(id);
-};
-
-(window as any).editStudent = (id: number) => {
-  const student = students.find(s => s.id === id) as Student;
-  if (student) showStudentModal(student);
-};
-
-(window as any).deleteStudentHandler = (id: number) => {
-  deleteStudent(id);
-};
-
-(window as any).deleteLevelHandler = (id: number) => {
-  deleteLevel(id);
-};
-
-(window as any).deleteScheduleHandler = (id: number) => {
-  deleteSchedule(id);
-};
-
-(window as any).closeModal = closeModal;
-
-// Utility functions
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-// Start app
+// ...existing code...
 init();
+

@@ -29,7 +29,10 @@ const generateToken = (user: User): string => {
 // POST /api/auth/register - Inscription
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const { email, username, password, firstName, lastName, role, phone, level } = req.body;
+    const { email, username, password, firstName, lastName, role, phone, levelId, level } = req.body;
+
+    // Compatibilité: accepter `level` ou `levelId`
+    const resolvedLevelId = levelId ?? level ?? null;
 
     // Validation des champs
     if (!email || !username || !password || !firstName || !lastName) {
@@ -37,6 +40,12 @@ router.post('/register', async (req: Request, res: Response) => {
         error: 'Tous les champs sont requis',
         required: ['email', 'username', 'password', 'firstName', 'lastName']
       });
+    }
+
+    // Si role est student, levelId est requis
+    const userRole = role === 'teacher' ? 'teacher' : 'student';
+    if (userRole === 'student' && (resolvedLevelId === null || resolvedLevelId === undefined)) {
+      return res.status(400).json({ error: 'levelId est requis pour les étudiants' });
     }
 
     // Vérifier si l'email existe déjà
@@ -55,9 +64,6 @@ router.post('/register', async (req: Request, res: Response) => {
       });
     }
 
-    // Validation du rôle
-    const userRole = role === 'teacher' ? 'teacher' : 'student';
-
     // Créer l'utilisateur (le mot de passe sera hashé automatiquement)
     const user = await User.create({
       email,
@@ -67,7 +73,7 @@ router.post('/register', async (req: Request, res: Response) => {
       lastName,
       phone: phone || null,
       role: userRole,
-      level: level || 0
+      levelId: resolvedLevelId
     });
 
     // Générer le token JWT
@@ -84,7 +90,7 @@ router.post('/register', async (req: Request, res: Response) => {
         lastName: user.lastName,
         phone: user.phone,
         role: user.role,
-        level: user.level,
+        levelId: user.levelId,
         createdAt: user.createdAt
       },
       token
@@ -140,7 +146,7 @@ router.post('/login', async (req: Request, res: Response) => {
         lastName: user.lastName,
         phone: user.phone,
         role: user.role,
-        level: user.level
+        levelId: user.levelId
       },
       token
     });
@@ -192,7 +198,7 @@ router.get('/me', async (req: Request, res: Response) => {
         lastName: user.lastName,
         phone: user.phone,
         role: user.role,
-        level: user.level,
+        levelId: user.levelId,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
       }

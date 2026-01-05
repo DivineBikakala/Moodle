@@ -153,3 +153,4 @@ router.delete('/:id', authenticate, isTeacher, async (req: Request, res: Respons
 });
 
 export default router;
+
