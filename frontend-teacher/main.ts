@@ -1,5 +1,9 @@
 // Configuration API
-const API_URL = 'http://localhost:3001/api';
+// Configuration API
+// En local: VITE_API_URL=http://localhost:3001
+// En prod:  VITE_API_URL=https://moodle-khl0.onrender.com
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = `${API_BASE.replace(/\/$/, '')}/api`;
 
 // Types
 interface User {
@@ -1055,5 +1059,36 @@ function showScheduleModal(schedule?: any) {
 // manageResources already attached earlier as (window as any).manageResources
 ;(window as any).closeModal = closeModal;
 ;(window as any).sanitizeName = sanitizeName;
+
+// Add global wrappers so inline onclick handlers in templates work
+;(window as any).editStudent = async function(studentId: number) {
+  try {
+    const token = authToken;
+    const res = await fetch(`${API_URL}/students/${studentId}`, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+    if (!res.ok) {
+      const txt = await res.text().catch(()=>null);
+      throw new Error(txt || 'Impossible de charger l\'étudiant');
+    }
+    const data = await res.json();
+    showStudentModal(data.student);
+  } catch (e:any) {
+    alert('Erreur: ' + (e.message || e));
+  }
+};
+
+;(window as any).deleteStudentHandler = async function(studentId: number) {
+  if (!confirm('Supprimer cet étudiant ?')) return;
+  try {
+    const token = authToken;
+    const res = await fetch(`${API_URL}/students/${studentId}`, { method: 'DELETE', headers: token ? { Authorization: 'Bearer ' + token } : {} });
+    if (!res.ok) {
+      const txt = await res.text().catch(()=>null);
+      throw new Error(txt || 'Erreur suppression');
+    }
+    loadStudents();
+  } catch (e:any) {
+    alert('Erreur: ' + (e.message || e));
+  }
+};
 
 init();
