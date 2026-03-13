@@ -307,7 +307,7 @@ function showAuthPage() {
     <div class="auth-container">
       <div class="auth-card">
         <div class="auth-header">
-          <h1>📚 Portail Enseignant</h1>
+          <h1>Portail Enseignant</h1>
           <p>Connectez-vous pour gérer votre plateforme</p>
         </div>
         <div id="auth-error"></div>
@@ -337,7 +337,7 @@ function showRegisterForm() {
     <div class="auth-container">
       <div class="auth-card">
         <div class="auth-header">
-          <h1>📚 Créer un compte</h1>
+          <h1> Créer un compte</h1>
           <p>Inscrivez-vous en tant qu'enseignant</p>
         </div>
         <div id="auth-error"></div>
@@ -384,7 +384,7 @@ function showDashboard() {
       <nav class="navbar">
         <div class="navbar-content">
           <div class="navbar-brand">
-            <div class="navbar-brand-icon">📚</div>
+            <div class="navbar-brand-icon"></div>
             <div>
               <div>Portail de cours</div>
               <div style="font-size: 12px; font-weight: 400; opacity: 0.8;">Espace Professeur</div>
@@ -401,15 +401,15 @@ function showDashboard() {
 
       <div class="nav-tabs">
         <button class="nav-tab ${currentTab === 'students' ? 'active' : ''}" data-tab="students">
-          <span class="nav-tab-icon">👥</span>
+          <span class="nav-tab-icon"></span>
           Étudiants
         </button>
         <button class="nav-tab ${currentTab === 'levels' ? 'active' : ''}" data-tab="levels">
-          <span class="nav-tab-icon">📊</span>
+          <span class="nav-tab-icon"></span>
           Niveaux
         </button>
         <button class="nav-tab ${currentTab === 'schedule' ? 'active' : ''}" data-tab="schedule">
-          <span class="nav-tab-icon">📅</span>
+          <span class="nav-tab-icon"></span>
           Horaire
         </button>
       </div>
@@ -516,8 +516,8 @@ function renderCourses() {
         </div>
         <p class="card-description">${course.description}</p>
         <div class="card-actions">
-          <button class="btn btn-sm btn-primary" onclick="editCourse(${course.id})">✏️ Modifier</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteCourseHandler(${course.id})">🗑️ Supprimer</button>
+          <button class="btn btn-sm btn-primary" onclick="editCourse(${course.id})">️ Modifier</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteCourseHandler(${course.id})">Supprimer</button>
         </div>
       </div>
     `;
@@ -564,8 +564,8 @@ function renderStudents() {
           </div>
         </div>
         <div class="list-item-actions">
-          <button class="btn btn-sm btn-primary" onclick="editStudent(${student.id})">✏️ Modifier</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteStudentHandler(${student.id})">🗑️ Supprimer</button>
+          <button class="btn btn-sm btn-primary" onclick="editStudent(${student.id})"> Modifier</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteStudentHandler(${student.id})"> Supprimer</button>
         </div>
       </div>
     `)
@@ -608,8 +608,8 @@ function renderLevels() {
       </div>
       <p class="card-description">${level.description || 'Pas de description'}</p>
       <div class="card-actions">
-        <button class="btn btn-sm btn-primary" onclick="manageResources(${level.id})">🗂️ Gérer les ressources</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteLevelHandler(${level.id})">🗑️ Supprimer</button>
+        <button class="btn btn-sm btn-primary" onclick="manageResources(${level.id})"> Gérer les ressources</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteLevelHandler(${level.id})">Supprimer</button>
       </div>
     </div>
   `).join('');
@@ -647,7 +647,7 @@ function renderSchedules() {
     <div class="list-item">
       <div class="list-item-content">
         <div class="list-item-title">${sch.title}</div>
-        <div class="list-item-subtitle">📅 ${sch.date ? new Date(sch.date).toLocaleDateString() : ''} • ⏰ ${sch.startTime} - ${sch.endTime} ${sch.location ? '• 📍 ' + sch.location : ''}</div>
+        <div class="list-item-subtitle"> ${sch.date ? new Date(sch.date).toLocaleDateString() : ''} •  ${sch.startTime} - ${sch.endTime} ${sch.location ? '• 📍 ' + sch.location : ''}</div>
         ${sch.description ? `<div style="margin-top:8px; font-size:13px;">${sch.description}</div>` : ''}
       </div>
       <div class="list-item-actions">
@@ -726,9 +726,9 @@ function sanitizeName(raw: string): string {
           <div class="list-item-subtitle">${r.category} • ${r.fileType}</div>
         </div>
         <div class="list-item-actions">
-          <button class="btn btn-sm" onclick="window.open('${r.fileUrl}','_blank')">⬇️ Télécharger</button>
+          <button class="btn btn-sm" onclick="window.open('${r.fileUrl}','_blank')">Télécharger</button>
           <button class="btn btn-sm" onclick="toggleResourceVisibility(${r.id}, ${r.isVisible})">${r.isVisible ? 'Masquer' : 'Publier'}</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteResource(${r.id})">🗑️ Supprimer</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteResource(${r.id})">️ Supprimer</button>
         </div>
       </div>
     `).join('');

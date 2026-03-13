@@ -155,7 +155,7 @@ function showAuthPage() {
     <div class="auth-container">
       <div class="auth-card">
         <div class="auth-header">
-          <h1>🎓 Portail Étudiant</h1>
+          <h1> Portail Étudiant</h1>
           <p>Connectez-vous pour accéder à vos cours</p>
         </div>
         <div id="auth-error"></div>
@@ -185,7 +185,7 @@ function showRegisterForm() {
     <div class="auth-container">
       <div class="auth-card">
         <div class="auth-header">
-          <h1>📝 Créer un compte</h1>
+          <h1> Créer un compte</h1>
           <p>Inscrivez-vous en tant qu'étudiant</p>
         </div>
         <div id="auth-error"></div>
@@ -226,7 +226,7 @@ async function showDashboard() {
   app.innerHTML = `
     <div class="dashboard">
       <nav class="navbar">
-        <h1>🎓 Portail Étudiant</h1>
+        <h1> Portail Étudiant</h1>
         <div class="navbar-right">
           <span class="user-info">${currentUser?.firstName} ${currentUser?.lastName}</span>
           <button id="btn-logout" class="btn-logout">Déconnexion</button>

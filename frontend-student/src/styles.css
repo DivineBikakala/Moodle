@@ -49,11 +49,13 @@
 
 body {
   margin: 0;
-  font-family: system-ui, 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: Montserrat, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 28px;
   background: var(--gray-50);
   color: var(--gray-800);
-  line-height: 1.5;
-  font-size: 16px;
+
 }
 
 #app {
