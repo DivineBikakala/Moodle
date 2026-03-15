@@ -37,6 +37,17 @@ interface Level {
   description?: string;
   order: number;
 }
+interface Resource {
+  id: number;
+  levelId: number;
+  title: string;
+  description: string;
+  fileUrl: string;
+  fileType: string;
+  category: 'notes' | 'exercices' | 'examen' | 'audio';
+  isVisible: boolean;
+  createdAt: string;
+}
 
 // State management
 let currentUser: User | null = null;
@@ -44,6 +55,7 @@ let authToken: string | null = localStorage.getItem('authToken');
 let levels: Level[] = [];
 let courses: Course[] = [];
 let selectedLevel: number | null = null;
+let resources: Resource[] = [];
 
 // Initialize app
 function init() {
@@ -147,6 +159,16 @@ async function loadCourses() {
     courses = [];
   }
 }
+async function loadResources() {
+  try {
+    const data = await apiCall('/my/resources');
+    resources = data.resources || [];
+  } catch (error) {
+    console.error('Erreur chargement ressources:', error);
+    resources = [];
+  }
+}
+
 
 // UI Rendering
 function showAuthPage() {
@@ -240,7 +262,8 @@ async function showDashboard() {
 
   document.getElementById('btn-logout')!.addEventListener('click', logout);
 
-  await Promise.all([loadLevels(), loadCourses()]);
+  await Promise.all([loadLevels(), loadCourses(), loadResources()]);
+
 
   showLevelsView();
 }
@@ -264,7 +287,7 @@ function renderLevels() {
   const container = document.getElementById('levels-container')!;
 
   const displayLevels = [
-    { id: 0, name: 'Introduction', description: "Cours d'introduction et bases fondamentales", order: 0 },
+
     ...levels.map((level) => ({
       id: level.id,
       name: level.name,
@@ -280,13 +303,13 @@ function renderLevels() {
           (level, index) => `
         <div class="level-card" onclick="viewLevel(${level.id})">
           <div class="level-card-header level-${index}">
-            ${level.order === 0 ? '📚' : level.order}
+         
           </div>
           <div class="level-card-body">
             <div class="level-card-title">${level.name}</div>
             <div class="level-card-description">${level.description}</div>
             <div class="level-card-stats">
-              <span>📖 ${getCoursesCountForLevel(level.id)} cours</span>
+              <span> ${getCoursesCountForLevel(level.id)} cours</span>
               <span>→</span>
             </div>
           </div>
@@ -300,8 +323,7 @@ function renderLevels() {
 
 function getCoursesCountForLevel(levelId: number): number {
   return courses.filter(
-      (c) => c.levelId === levelId || (c.levelId === undefined && levelId === 0)
-  ).length;
+      (c) => c.levelId === levelId).length;
 }
 
 function viewLevel(levelId: number) {
@@ -310,6 +332,7 @@ function viewLevel(levelId: number) {
 
   const levelInfo = getLevelInfo(levelId);
   const levelCourses = getCoursesForLevel(levelId);
+  const levelResources = getResourcesForLevel(levelId);
 
   mainContent.innerHTML = `
     <div class="breadcrumb">
@@ -326,18 +349,19 @@ function viewLevel(levelId: number) {
     </div>
 
     <div id="courses-container"></div>
+     <div class="section-header" style="margin-top: 48px;">
+      <h2 class="section-title">📚 Ressources disponibles</h2>
+      <p class="section-subtitle">Documents et supports de cours</p>
+    </div>
+    <div id="resources-container"></div>
+  
   `;
 
   renderCourses(levelCourses);
+  renderResources(levelResources);
 }
 
 function getLevelInfo(levelId: number) {
-  if (levelId === 0) {
-    return {
-      name: 'Introduction',
-      description: "Cours d'introduction et bases fondamentales",
-    };
-  }
 
   const level = levels.find((l) => l.id === levelId);
   if (level) {
@@ -348,14 +372,9 @@ function getLevelInfo(levelId: number) {
 }
 
 function getCoursesForLevel(levelId: number): Course[] {
-  return courses.filter((c) => {
-    const courseLevelId = c.levelId;
-    if (levelId === 0) {
-      return courseLevelId === 0 || courseLevelId === undefined || courseLevelId === null;
-    }
-    return courseLevelId === levelId;
-  });
+  return courses.filter((c) => c.levelId === levelId);
 }
+
 
 function renderCourses(coursesToDisplay: Course[]) {
   const container = document.getElementById('courses-container')!;
@@ -390,7 +409,7 @@ function renderCourses(coursesToDisplay: Course[]) {
               course.teacher
                   ? `
             <div class="course-card-teacher">
-              <span>👨‍🏫</span>
+              <span>‍</span>
               <span>${course.teacher.firstName} ${course.teacher.lastName}</span>
             </div>
           `
@@ -398,7 +417,7 @@ function renderCourses(coursesToDisplay: Course[]) {
           }
           <div class="course-card-actions">
             <button class="btn-course btn-view" onclick="viewCourse(${course.id})">
-              📖 Voir le cours
+               Voir le cours
             </button>
             <button class="btn-course btn-enroll" onclick="enrollCourse(${course.id})">
               ✓ S'inscrire
@@ -411,6 +430,85 @@ function renderCourses(coursesToDisplay: Course[]) {
     </div>
   `;
 }
+
+//
+function getResourcesForLevel(levelId: number): Resource[] {
+  return resources.filter((r) => r.levelId === levelId && r.isVisible);
+}
+
+function renderResources(resourcesToDisplay: Resource[]) {
+  const container = document.getElementById('resources-container')!;
+
+  if (resourcesToDisplay.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">📭</div>
+        <h3>Aucune ressource disponible</h3>
+        <p>Il n'y a pas encore de ressources pour ce niveau.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="resources-grid">
+      ${resourcesToDisplay
+      .map((resource) => {
+        const icon = getResourceIcon(resource.category, resource.fileType);
+        return `
+            <div class="resource-card">
+              <div class="resource-icon">${icon}</div>
+              <div class="resource-content">
+                <h3 class="resource-title">${resource.title}</h3>
+                <p class="resource-description">${resource.description || 'Aucune description'}</p>
+                <div class="resource-meta">
+                  <span class="resource-category">${getCategoryLabel(resource.category)}</span>
+                  <span class="resource-type">${getFileTypeLabel(resource.fileType)}</span>
+                </div>
+              </div>
+              <a href="${resource.fileUrl}" target="_blank" class="btn-resource" download>
+                📥 Télécharger
+              </a>
+            </div>
+          `;
+      })
+      .join('')}
+    </div>
+  `;
+}
+
+function getResourceIcon(category: string, fileType: string): string {
+  if (fileType.includes('video')) return '🎥';
+  if (fileType.includes('audio')) return '🎵';
+  if (fileType.includes('pdf')) return '📄';
+
+  switch (category) {
+    case 'notes': return '📝';
+    case 'exercices': return '✍️';
+    case 'examen': return '📋';
+    case 'audio': return '🎵';
+    default: return '📎';
+  }
+}
+
+function getCategoryLabel(category: string): string {
+  const labels: any = {
+    'notes': 'Notes de cours',
+    'exercices': 'Exercices',
+    'examen': 'Examen',
+    'audio': 'Audio'
+  };
+  return labels[category] || category;
+}
+
+function getFileTypeLabel(fileType: string): string {
+  if (fileType.includes('pdf')) return 'PDF';
+  if (fileType.includes('video')) return 'Vidéo';
+  if (fileType.includes('audio')) return 'Audio';
+  if (fileType.includes('image')) return 'Image';
+  return 'Fichier';
+}
+
 
 function viewCourse(courseId: number) {
   alert(`Affichage du cours ${courseId} (fonctionnalité à venir)`);

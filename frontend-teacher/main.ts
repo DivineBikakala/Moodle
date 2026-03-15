@@ -104,9 +104,13 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Erreur réseau' }));
-    throw new Error(error.error || 'Erreur serveur');
-  }
 
+  if (error.details && Array.isArray(error.details)) {
+    const detailsMsg = error.details.map((d: any) => d.msg).join(', ');
+    throw new Error(`${error.error || 'Erreur'}: ${detailsMsg}`);
+  }
+  throw new Error(error.error || 'Erreur serveur');
+}
   return response.json();
 }
 
@@ -256,6 +260,16 @@ async function loadLevels() {
     renderLevels();
   }
 }
+async function loadLevelsData() {
+  try {
+    const data = await apiCall('/levels');
+    levels = data.levels || [];
+    console.log(' Niveaux chargés:', levels); // Pour déboguer
+  } catch (error: any) {
+    console.error(' Erreur chargement niveaux:', error);
+    levels = [];
+  }
+}
 
 async function createLevel(name: string, description: string) {
   await apiCall('/levels', {
@@ -372,7 +386,9 @@ function showRegisterForm() {
   document.getElementById('register-form')!.addEventListener('submit', (e) => (window as any).handleRegister?.(e));
   document.getElementById('show-login')!.addEventListener('click', showAuthPage);
 }
-function showDashboard() {
+async function showDashboard() {
+
+  await loadLevelsData();
   const app = document.getElementById('app')!;
 
   // Show build tag only when running on localhost (development)
@@ -392,8 +408,8 @@ function showDashboard() {
           </div>
           <div class="navbar-right">
             <span class="user-info">${currentUser?.firstName} ${currentUser?.lastName}</span>
-            ${buildTagHtml}
-            <button id="btn-force-reload" title="Vider le cache et recharger" class="btn btn-secondary" style="padding:6px 10px; font-size:12px; margin-right:8px;">Rafraîchir</button>
+           
+           
             <button id="btn-logout" class="btn-logout">Déconnexion</button>
           </div>
         </div>
@@ -419,18 +435,7 @@ function showDashboard() {
   `;
 
   document.getElementById('btn-logout')!.addEventListener('click', logout);
-  document.getElementById('btn-force-reload')!.addEventListener('click', async () => {
-    try {
-      // try to clear cache storage (service workers / caches)
-      if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map(k => caches.delete(k)));
-      }
-    } catch (e) { console.warn('Cache clear failed', e); }
-    // also clear app-level cached items (optionally)
-    // location.reload(true) not supported; use reload then fallback
-    setTimeout(() => location.reload(), 200);
-  });
+
 
   document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.addEventListener('click', (e) => {
@@ -942,13 +947,19 @@ function showStudentModal(student?: Student) {
   document.body.insertAdjacentHTML('beforeend', modalHTML);
   document.getElementById('student-form')!.addEventListener('submit', (e) => handleStudentSubmit(e, student));
 }
-
 async function handleStudentSubmit(e: Event, student?: Student) {
   e.preventDefault();
   const errorDiv = document.getElementById('modal-error')!;
+  errorDiv.innerHTML = ''; // Effacer les erreurs précédentes
 
   try {
     const levelValue = (document.getElementById('student-level') as HTMLSelectElement).value;
+
+    // VALIDATION : Le niveau est obligatoire
+    if (!levelValue) {
+      errorDiv.innerHTML = `<div class="error-message"> Veuillez sélectionner un niveau</div>`;
+      return;
+    }
 
     const studentData = {
       firstName: (document.getElementById('student-firstName') as HTMLInputElement).value,
@@ -956,20 +967,29 @@ async function handleStudentSubmit(e: Event, student?: Student) {
       username: (document.getElementById('student-username') as HTMLInputElement).value,
       email: (document.getElementById('student-email') as HTMLInputElement).value,
       phone: (document.getElementById('student-phone') as HTMLInputElement).value || undefined,
-      levelId: levelValue ? parseInt(levelValue, 10) : undefined,
+      levelId: parseInt(levelValue, 10),
     };
 
     if (!student) {
       (studentData as any).password = (document.getElementById('student-password') as HTMLInputElement).value;
+
+      //  Validation du mot de passe
+      if (!(studentData as any).password || (studentData as any).password.length < 6) {
+        errorDiv.innerHTML = `<div class="error-message"> Le mot de passe doit contenir au moins 6 caractères</div>`;
+        return;
+      }
+
       await createStudent(studentData);
     } else {
       await updateStudent(student.id, studentData);
     }
     closeModal('student-modal');
   } catch (error: any) {
-    errorDiv.innerHTML = `<div class="error-message">${error.message}</div>`;
+    console.error(' Erreur création étudiant:', error);
+    errorDiv.innerHTML = `<div class="error-message"> ${error.message}</div>`;
   }
 }
+
 
 // If these handlers/modals were missing, define them here so TypeScript and the editor stop reporting 'Cannot find name'.
 async function handleLogin(e: Event) {

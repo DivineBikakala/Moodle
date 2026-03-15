@@ -71,11 +71,11 @@ const startServer = async () => {
 
     // Démarrage du serveur Express
     app.listen(port, () => {
-      console.log(`🚀 Backend démarré sur http://localhost:${port}`);
-      console.log(`📊 Santé: http://localhost:${port}/health`);
+      console.log(` Backend démarré sur http://localhost:${port}`);
+      console.log(` Santé: http://localhost:${port}/health`);
     });
   } catch (error) {
-    console.error('❌ Erreur lors du démarrage du serveur:', error);
+    console.error(' Erreur lors du démarrage du serveur:', error);
     process.exit(1);
   }
 };
