@@ -4,7 +4,7 @@ import sequelize from '../config/database';
 // Attributs du modèle Resource
 interface ResourceAttributes {
   id: number;
-  levelId: number;
+  courseId: number;
   title: string;
   description?: string;
   fileUrl: string;
@@ -20,7 +20,7 @@ interface ResourceCreationAttributes extends Optional<ResourceAttributes, 'id' |
 // Classe du modèle Resource
 class Resource extends Model<ResourceAttributes, ResourceCreationAttributes> implements ResourceAttributes {
   public id!: number;
-  public levelId!: number;
+  public courseId!: number;
   public title!: string;
   public description?: string;
   public fileUrl!: string;
@@ -39,17 +39,18 @@ Resource.init(
       autoIncrement: true,
       primaryKey: true
     },
-    levelId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'levels',
-        key: 'id'
+      courseId: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          references: {
+              model: 'courses',
+              key: 'id'
+          },
+          onUpdate: 'CASCADE',
+          onDelete: 'CASCADE'
       },
-      onUpdate: 'CASCADE',
-      onDelete: 'CASCADE'
-    },
-    title: {
+
+      title: {
       type: DataTypes.STRING(255),
       allowNull: false
     },

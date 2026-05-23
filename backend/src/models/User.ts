@@ -63,7 +63,7 @@ const User = sequelize.define('User', {
     type: DataTypes.INTEGER,
     allowNull: true,
     references: { model: 'levels', key: 'id' },
-    field: 'level' // map to existing DB column named 'level' to avoid migration
+    field: 'level' // map to existing DB column named 'level' to avoid migrations
   }
 }, {
   tableName: 'users',

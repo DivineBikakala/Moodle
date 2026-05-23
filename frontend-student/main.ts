@@ -39,7 +39,7 @@ interface Level {
 }
 interface Resource {
   id: number;
-  levelId: number;
+  courseId: number;
   title: string;
   description: string;
   fileUrl: string;
@@ -332,7 +332,6 @@ function viewLevel(levelId: number) {
 
   const levelInfo = getLevelInfo(levelId);
   const levelCourses = getCoursesForLevel(levelId);
-  const levelResources = getResourcesForLevel(levelId);
 
   mainContent.innerHTML = `
     <div class="breadcrumb">
@@ -349,16 +348,9 @@ function viewLevel(levelId: number) {
     </div>
 
     <div id="courses-container"></div>
-     <div class="section-header" style="margin-top: 48px;">
-      <h2 class="section-title">📚 Ressources disponibles</h2>
-      <p class="section-subtitle">Documents et supports de cours</p>
-    </div>
-    <div id="resources-container"></div>
-  
   `;
 
   renderCourses(levelCourses);
-  renderResources(levelResources);
 }
 
 function getLevelInfo(levelId: number) {
@@ -431,10 +423,6 @@ function renderCourses(coursesToDisplay: Course[]) {
   `;
 }
 
-//
-function getResourcesForLevel(levelId: number): Resource[] {
-  return resources.filter((r) => r.levelId === levelId && r.isVisible);
-}
 
 function renderResources(resourcesToDisplay: Resource[]) {
   const container = document.getElementById('resources-container')!;
@@ -509,9 +497,57 @@ function getFileTypeLabel(fileType: string): string {
   return 'Fichier';
 }
 
+async function viewCourse(courseId: number) {
+  const mainContent = document.getElementById('main-content')!;
 
-function viewCourse(courseId: number) {
-  alert(`Affichage du cours ${courseId} (fonctionnalité à venir)`);
+  const course = courses.find(c => c.id === courseId);
+  if (!course) {
+    alert('Cours non trouvé');
+    return;
+  }
+
+  // Charger les ressources du cours
+  let courseResources: Resource[] = [];
+  try {
+    const data = await apiCall(`/courses/${courseId}/resources`);
+    courseResources = data.resources || [];
+  } catch (error) {
+    console.error('Erreur chargement ressources:', error);
+  }
+
+  const levelInfo = getLevelInfo(course.levelId || 0);
+
+  mainContent.innerHTML = `
+    <div class="breadcrumb">
+      <span class="breadcrumb-item">
+        <a href="#" onclick="showLevelsView()" class="breadcrumb-link">Niveaux</a>
+      </span>
+      <span class="breadcrumb-separator">›</span>
+      <span class="breadcrumb-item">
+        <a href="#" onclick="viewLevel(${course.levelId})" class="breadcrumb-link">${levelInfo.name}</a>
+      </span>
+      <span class="breadcrumb-separator">›</span>
+      <span class="breadcrumb-item">${course.title}</span>
+    </div>
+
+    <div class="section-header">
+      <h2 class="section-title">📖 ${course.title}</h2>
+      <p class="section-subtitle">${course.description}</p>
+      ${course.teacher ? `
+        <div style="margin-top: 12px; color: var(--gray-600);">
+          <span>👨‍🏫 Professeur : ${course.teacher.firstName} ${course.teacher.lastName}</span>
+        </div>
+      ` : ''}
+    </div>
+
+    <div class="section-header" style="margin-top: 48px;">
+      <h2 class="section-title">📚 Ressources du cours</h2>
+      <p class="section-subtitle">Documents et supports disponibles</p>
+    </div>
+    <div id="resources-container"></div>
+  `;
+
+  renderResources(courseResources);
 }
 
 async function enrollCourse(courseId: number) {
