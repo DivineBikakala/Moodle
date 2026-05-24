@@ -826,21 +826,52 @@ function showAddResourceModal(levelId: number) {
       const category = (document.getElementById('resource-category') as HTMLSelectElement).value;
       const isVisible = (document.getElementById('resource-visible') as HTMLInputElement).checked;
       if (!title || !fileUrl || !fileType) throw new Error('Veuillez remplir le titre, l\'URL et le type de fichier');
+
       const levelIdAttr = modalEl.getAttribute('data-level-id');
-      const levelIdUsed = levelIdAttr ? parseInt(levelIdAttr,10) : levelId;
-      const payload = { title, description, fileUrl, fileType, category, isVisible };
+      const levelIdUsed = levelIdAttr ? parseInt(levelIdAttr, 10) : levelId;
       const token = authToken;
-      const res = await fetch(`${API_URL}/levels/${levelIdUsed}/resources`, { method: 'POST', headers: { 'Content-Type':'application/json', ...(token?{Authorization:'Bearer '+token}:{}) }, body: JSON.stringify(payload) });
+      const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) };
+
+      // 1. Trouver un cours existant pour ce niveau
+      let courseId: number | null = null;
+      const coursesRes = await fetch(`${API_URL}/courses`, { headers });
+      if (coursesRes.ok) {
+        const coursesData = await coursesRes.json();
+        const levelCourse = (coursesData.courses || []).find((c: any) => c.levelId === levelIdUsed);
+        if (levelCourse) courseId = levelCourse.id;
+      }
+
+      // 2. Si aucun cours n'existe pour ce niveau, en créer un automatiquement
+      if (!courseId) {
+        const levelName = levels.find(l => l.id === levelIdUsed)?.name || `Niveau ${levelIdUsed}`;
+        const createCourseRes = await fetch(`${API_URL}/courses`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ title: levelName, description: `Cours pour ${levelName}`, levelId: levelIdUsed, isPublished: true })
+        });
+        if (!createCourseRes.ok) throw new Error('Impossible de créer un cours pour ce niveau');
+        const courseData = await createCourseRes.json();
+        courseId = courseData.course?.id;
+      }
+
+      if (!courseId) throw new Error('Impossible de trouver ou créer un cours pour ce niveau');
+
+      // 3. Créer la ressource sur le cours
+      const payload = { title, description, fileUrl, fileType, category, isVisible };
+      const res = await fetch(`${API_URL}/courses/${courseId}/resources`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
       const text = await res.text();
       if (!res.ok) {
-        try { const json = JSON.parse(text); errorDiv.textContent = json.error || JSON.stringify(json); } catch(_) { errorDiv.textContent = text || 'Erreur création ressource'; }
+        try { const json = JSON.parse(text); errorDiv.textContent = json.error || JSON.stringify(json); } catch (_) { errorDiv.textContent = text || 'Erreur création ressource'; }
         errorDiv.classList.remove('hidden');
         return;
       }
-      // close modal and refresh resources list for the same level
       closeModal('resource-modal');
       await (window as any).manageResources?.(levelIdUsed);
-    } catch (e:any) {
+    } catch (e: any) {
       errorDiv.classList.remove('hidden');
       errorDiv.textContent = e.message || String(e);
     } finally {
