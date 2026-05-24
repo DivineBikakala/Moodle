@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
-import { Level, Resource } from '../models';
+import { Level, Resource, Course } from '../models';
 import { authenticate, isTeacher } from '../middlewares/auth.middleware';
 
 const router = Router();
@@ -16,13 +16,24 @@ router.get('/', authenticate, async (_req: Request, res: Response) => {
   }
 });
 
-// GET /api/levels/:id - Récupérer un niveau avec ses ressources
+// GET /api/levels/:id - Récupérer un niveau avec ses ressources (via les cours)
 router.get('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const level = await Level.findByPk(id, { include: [{ model: Resource, as: 'resources' }] });
+
+    const level = await Level.findByPk(id);
     if (!level) return res.status(404).json({ error: 'Niveau non trouvé' });
-    res.json({ level });
+
+    // Récupérer les cours de ce niveau avec leurs ressources
+    const courses = await Course.findAll({
+      where: { levelId: id },
+      include: [{ model: Resource, as: 'resources' }]
+    });
+
+    // Aplatir toutes les ressources de tous les cours du niveau
+    const resources = courses.flatMap((c: any) => c.resources || []);
+
+    res.json({ level: { ...(level as any).toJSON(), resources } });
   } catch (error) {
     console.error('Erreur GET /api/levels/:id', error);
     res.status(500).json({ error: 'Erreur serveur' });

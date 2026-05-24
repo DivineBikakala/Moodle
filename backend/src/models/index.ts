@@ -9,16 +9,6 @@ import Enrollment from './Enrollment';
 // Fonction pour initialiser toutes les associations
 // Elle doit être appelée APRÈS que tous les modèles soient chargés
 export const initializeAssociations = () => {
-  // Level -> Resources
-  Level.hasMany(CourseResource, {
-    foreignKey: 'levelId',
-    as: 'resources'
-  });
-
-  CourseResource.belongsTo(Level, {
-    foreignKey: 'levelId',
-    as: 'level'
-  });
 
   // User belongsTo Level (students)
   User.belongsTo(Level, {
@@ -77,6 +67,17 @@ export const initializeAssociations = () => {
   Course.hasMany(Enrollment, {
     foreignKey: 'courseId',
     as: 'enrollments'
+  });
+
+  // Course -> Resources
+  Course.hasMany(CourseResource, {
+    foreignKey: 'courseId',
+    as: 'resources'
+  });
+
+  CourseResource.belongsTo(Course, {
+    foreignKey: 'courseId',
+    as: 'course'
   });
 };
 
