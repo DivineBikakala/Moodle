@@ -40,6 +40,60 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/levels/:id/resources - Créer une ressource pour un niveau (trouve/crée un cours automatiquement)
+router.post(
+  '/:id/resources',
+  authenticate,
+  isTeacher,
+  [
+    body('title').isString().notEmpty().withMessage('Le titre est requis'),
+    body('description').optional().isString(),
+    body('fileUrl').isString().notEmpty().withMessage('L\'URL du fichier est requise'),
+    body('fileType').isString().notEmpty().withMessage('Le type de fichier est requis'),
+    body('category').isIn(['notes', 'exercices', 'examen', 'audio']).withMessage('Catégorie invalide'),
+    body('isVisible').optional().isBoolean()
+  ],
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ error: 'Données invalides', details: errors.array() });
+
+      const levelId = parseInt(req.params.id, 10);
+
+      const level = await Level.findByPk(levelId);
+      if (!level) return res.status(404).json({ error: 'Niveau non trouvé' });
+
+      // Trouver ou créer un cours pour ce niveau
+      let course = await Course.findOne({ where: { levelId, teacherId: req.userId } });
+      if (!course) {
+        course = await Course.create({
+          title: (level as any).name,
+          description: `Cours pour ${(level as any).name}`,
+          levelId,
+          teacherId: req.userId!,
+          status: 'published'
+        });
+      }
+
+      const { title, description, fileUrl, fileType, category, isVisible } = req.body;
+      const resource = await Resource.create({
+        courseId: (course as any).id,
+        title,
+        description,
+        fileUrl,
+        fileType,
+        category,
+        isVisible: isVisible !== undefined ? isVisible : true
+      });
+
+      res.status(201).json({ message: 'Ressource créée', resource });
+    } catch (error: any) {
+      console.error('Erreur POST /api/levels/:id/resources', error);
+      res.status(500).json({ error: 'Erreur serveur', details: error.message });
+    }
+  }
+);
+
 // POST /api/levels - Créer un niveau (teacher)
 router.post(
   '/',

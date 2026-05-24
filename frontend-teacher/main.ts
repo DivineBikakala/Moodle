@@ -832,33 +832,8 @@ function showAddResourceModal(levelId: number) {
       const token = authToken;
       const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) };
 
-      // 1. Trouver un cours existant pour ce niveau
-      let courseId: number | null = null;
-      const coursesRes = await fetch(`${API_URL}/courses`, { headers });
-      if (coursesRes.ok) {
-        const coursesData = await coursesRes.json();
-        const levelCourse = (coursesData.courses || []).find((c: any) => c.levelId === levelIdUsed);
-        if (levelCourse) courseId = levelCourse.id;
-      }
-
-      // 2. Si aucun cours n'existe pour ce niveau, en créer un automatiquement
-      if (!courseId) {
-        const levelName = levels.find(l => l.id === levelIdUsed)?.name || `Niveau ${levelIdUsed}`;
-        const createCourseRes = await fetch(`${API_URL}/courses`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ title: levelName, description: `Cours pour ${levelName}`, levelId: levelIdUsed, isPublished: true })
-        });
-        if (!createCourseRes.ok) throw new Error('Impossible de créer un cours pour ce niveau');
-        const courseData = await createCourseRes.json();
-        courseId = courseData.course?.id;
-      }
-
-      if (!courseId) throw new Error('Impossible de trouver ou créer un cours pour ce niveau');
-
-      // 3. Créer la ressource sur le cours
       const payload = { title, description, fileUrl, fileType, category, isVisible };
-      const res = await fetch(`${API_URL}/courses/${courseId}/resources`, {
+      const res = await fetch(`${API_URL}/levels/${levelIdUsed}/resources`, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload)
