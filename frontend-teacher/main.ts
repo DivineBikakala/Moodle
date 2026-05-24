@@ -613,7 +613,7 @@ function renderLevels() {
       </div>
       <p class="card-description">${level.description || 'Pas de description'}</p>
       <div class="card-actions">
-        <button class="btn btn-sm btn-primary" onclick="manageResources(${level.id})"> Gérer les ressources</button>
+        <button class="btn btn-sm btn-primary" style="background:#0f172a;" onmouseover="this.style.background='#1f2937'" onmouseout="this.style.background='#0f172a'" onclick="manageResources(${level.id})">Gérer les ressources</button>
         <button class="btn btn-sm btn-danger" onclick="deleteLevelHandler(${level.id})">Supprimer</button>
       </div>
     </div>
