@@ -4,7 +4,7 @@ import sequelize from '../config/database';
 // Attributs du modèle Resource
 interface ResourceAttributes {
   id: number;
-  courseId: number;
+  courseId?: number | null;
   title: string;
   description?: string;
   fileUrl: string;
@@ -20,7 +20,7 @@ interface ResourceCreationAttributes extends Optional<ResourceAttributes, 'id' |
 // Classe du modèle Resource
 class Resource extends Model<ResourceAttributes, ResourceCreationAttributes> implements ResourceAttributes {
   public id!: number;
-  public courseId!: number;
+  public courseId?: number | null;
   public title!: string;
   public description?: string;
   public fileUrl!: string;
@@ -41,7 +41,7 @@ Resource.init(
     },
       courseId: {
           type: DataTypes.INTEGER,
-          allowNull: false,
+          allowNull: true,   // nullable pour permettre la migration ALTER TABLE en prod
           references: {
               model: 'courses',
               key: 'id'

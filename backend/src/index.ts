@@ -2,6 +2,7 @@ import express = require('express');
 import cors = require('cors');
 import * as dotenv from 'dotenv';
 import { connectDatabase, syncDatabase } from './config/database';
+import sequelize from './config/database';
 import { initializeAssociations } from './models'; // Importer la fonction d'initialisation
 
 // Charger les variables d'environnement de façon sûre
@@ -67,10 +68,35 @@ const startServer = async () => {
     // Connexion à la base de données
     await connectDatabase();
 
-    // Synchronisation des modèles
-    // alter:true en production pour migrer le schéma (ex: levelId → courseId)
-    const shouldAlter = process.env.NODE_ENV === 'production' || process.env.FORCE_SYNC === 'true';
-    await syncDatabase(false, shouldAlter); // Conserver les données, mettre à jour le schéma si besoin
+    // Migration SQL explicite : ajouter courseId si absent, supprimer levelId si présent
+    try {
+      const [columns]: any = await sequelize.query(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'resources'
+      `);
+      const colNames = columns.map((c: any) => c.column_name);
+
+      if (!colNames.includes('courseId') && !colNames.includes('courseid')) {
+        console.log('🔧 Migration: ajout de courseId dans resources...');
+        await sequelize.query(`ALTER TABLE resources ADD COLUMN "courseId" INTEGER REFERENCES courses(id) ON UPDATE CASCADE ON DELETE CASCADE`);
+        console.log('✅ courseId ajouté');
+      }
+
+      if (colNames.includes('levelId') || colNames.includes('levelid')) {
+        console.log('🔧 Migration: suppression de levelId dans resources...');
+        try {
+          await sequelize.query(`ALTER TABLE resources DROP COLUMN IF EXISTS "levelId"`);
+        } catch (_) {
+          await sequelize.query(`ALTER TABLE resources DROP COLUMN IF EXISTS "levelid"`);
+        }
+        console.log('✅ levelId supprimé');
+      }
+    } catch (migErr: any) {
+      console.warn('⚠️ Migration SQL resources:', migErr.message);
+    }
+
+    // Synchronisation des modèles (sans alter pour éviter les conflits)
+    await syncDatabase(false, false);
 
     // Démarrage du serveur Express
     app.listen(port, () => {
