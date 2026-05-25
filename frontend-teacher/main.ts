@@ -1,3 +1,6 @@
+// Logo
+import logoUrl from './src/Logo .png';
+
 // Configuration API
 // Configuration API
 // En local: VITE_API_URL=http://localhost:3001
@@ -400,7 +403,7 @@ async function showDashboard() {
       <nav class="navbar">
         <div class="navbar-content">
           <div class="navbar-brand">
-            <div class="navbar-brand-icon"></div>
+            <img src="${logoUrl}" alt="English at Yours" class="navbar-logo" />
             <div>
               <div>Portail de cours</div>
               <div style="font-size: 12px; font-weight: 400; opacity: 0.8;">Espace Professeur</div>

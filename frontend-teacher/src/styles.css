@@ -311,9 +311,17 @@ body {
 .navbar-brand {
   display: flex;
   align-items: center;
-  gap: clamp(8px, 1.5vw, 12px);
+  gap: clamp(8px, 1.5vw, 16px);
   font-size: clamp(20px, 2.5vw, 24px);
   font-weight: 800;
+}
+
+.navbar-logo {
+  width: clamp(70px, 8vw, 100px);
+  height: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 8px;
 }
 
 .navbar-brand-icon {
@@ -878,6 +886,10 @@ body {
 
   .navbar-brand {
     font-size: 18px;
+  }
+
+  .navbar-logo {
+    width: 70px;
   }
 
   .navbar-brand-icon {
