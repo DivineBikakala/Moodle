@@ -67,9 +67,10 @@ const startServer = async () => {
     // Connexion à la base de données
     await connectDatabase();
 
-    // Synchronisation des modèles (en développement uniquement)
-    // Le schéma a été mis à jour, on garde maintenant alter:false
-    await syncDatabase(false, false); // Conserver le schéma et les données
+    // Synchronisation des modèles
+    // alter:true en production pour migrer le schéma (ex: levelId → courseId)
+    const shouldAlter = process.env.NODE_ENV === 'production' || process.env.FORCE_SYNC === 'true';
+    await syncDatabase(false, shouldAlter); // Conserver les données, mettre à jour le schéma si besoin
 
     // Démarrage du serveur Express
     app.listen(port, () => {
