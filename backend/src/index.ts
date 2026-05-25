@@ -47,20 +47,33 @@ app.get('/health', (_req, res) => {
   });
 });
 
-app.get('/', (_req, res) => {
-  res.send('Backend Moodle minimal en cours d\'exécution');
+// Route debug : colonnes de la table resources
+app.get('/health/schema', async (_req, res) => {
+  try {
+    const [cols]: any = await sequelize.query(
+      `SELECT column_name, data_type FROM information_schema.columns
+       WHERE table_name = 'resources' AND table_schema = 'public'
+       ORDER BY ordinal_position`
+    );
+    res.json({ table: 'resources', columns: cols });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-// Routes API
-app.use('/api/auth', authRoutes);
-app.use('/api/students', studentRoutes); // routes de gestion des étudiants
-app.use('/api/levels', levelRoutes); // routes de gestion des niveaux
-app.use('/api/courses', courseRoutes); // routes de gestion des cours
-app.use('/api/schedules', scheduleRoutes); // routes de gestion de l'horaire
-app.use('/api', resourceRoutes); // new resource endpoints under /api/levels/:id/resources and /api/resources/:id and /api/my/resources
-// TODO: Ajouter d'autres routes ici
-// app.use('/api/resources', resourceRoutes);
-// etc.
+// Migration robuste de la table resources
+async function runMigrations() {
+  try {
+    console.log('🔧 Migration resources...');
+    await sequelize.query(
+      `ALTER TABLE resources ADD COLUMN IF NOT EXISTS "courseId" INTEGER REFERENCES courses(id) ON UPDATE CASCADE ON DELETE CASCADE`
+    );
+    await sequelize.query(`ALTER TABLE resources DROP COLUMN IF EXISTS "levelId"`);
+    console.log('✅ Migration resources terminée');
+  } catch (err: any) {
+    console.error('⚠️ Migration resources:', err.message);
+  }
+}
 
 // Fonction pour démarrer le serveur
 const startServer = async () => {
@@ -68,35 +81,10 @@ const startServer = async () => {
     // Connexion à la base de données
     await connectDatabase();
 
-    // Migration SQL explicite : ajouter courseId si absent, supprimer levelId si présent
-    try {
-      const [columns]: any = await sequelize.query(`
-        SELECT column_name FROM information_schema.columns
-        WHERE table_name = 'resources'
-      `);
-      const colNames = columns.map((c: any) => c.column_name);
-
-      if (!colNames.includes('courseId') && !colNames.includes('courseid')) {
-        console.log('🔧 Migration: ajout de courseId dans resources...');
-        await sequelize.query(`ALTER TABLE resources ADD COLUMN "courseId" INTEGER REFERENCES courses(id) ON UPDATE CASCADE ON DELETE CASCADE`);
-        console.log('✅ courseId ajouté');
-      }
-
-      if (colNames.includes('levelId') || colNames.includes('levelid')) {
-        console.log('🔧 Migration: suppression de levelId dans resources...');
-        try {
-          await sequelize.query(`ALTER TABLE resources DROP COLUMN IF EXISTS "levelId"`);
-        } catch (_) {
-          await sequelize.query(`ALTER TABLE resources DROP COLUMN IF EXISTS "levelid"`);
-        }
-        console.log('✅ levelId supprimé');
-      }
-    } catch (migErr: any) {
-      console.warn('⚠️ Migration SQL resources:', migErr.message);
-    }
-
-    // Synchronisation des modèles (sans alter pour éviter les conflits)
-    await syncDatabase(false, false);
+    // Synchronisation des modèles (en développement uniquement)
+    // Le schéma a été mis à jour, on garde maintenant alter:false
+    await syncDatabase(false, false); // Conserver le schéma et les données
+    await runMigrations();
 
     // Démarrage du serveur Express
     app.listen(port, () => {

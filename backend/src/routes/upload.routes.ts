@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { param, validationResult } from 'express-validator';
-import { Level, Resource, User } from '../models';
+import { Level, Resource, User, Course } from '../models';
 import { authenticate, isTeacher } from '../middlewares/auth.middleware';
 import { uploadToS3, getSignedDownloadUrl, deleteFileFromS3, extractS3KeyFromUrl } from '../config/s3';
 
@@ -34,9 +34,21 @@ router.post(
       const level = await Level.findByPk(levelId);
       if (!level) return res.status(404).json({ error: 'Niveau non trouvé' });
 
+      // Trouver ou créer un cours pour ce niveau
+      let course = await Course.findOne({ where: { levelId, teacherId: req.userId } });
+      if (!course) {
+        course = await Course.create({
+          title: (level as any).name,
+          description: `Cours pour ${(level as any).name}`,
+          levelId,
+          teacherId: req.userId!,
+          status: 'published'
+        });
+      }
+
       const fileInfo = req.file as any;
       const resource = await Resource.create({
-        levelId,
+        courseId: (course as any).id,
         title,
         description: description || '',
         fileUrl: fileInfo.location || fileInfo.key,
@@ -71,14 +83,18 @@ router.get('/resources/:id/download', authenticate, async (req: Request, res: Re
     if (!resource) return res.status(404).json({ error: 'Ressource non trouvée' });
 
     // Si utilisateur étudiant, vérifier le niveau et la visibilité
-    const userId = req.userId;
-    if (userId) {
-      const user = await User.findByPk(userId);
-      if (user && user.role === 'student') {
-        if (!resource.isVisible) return res.status(404).json({ error: 'Ressource non trouvée' });
-        if (user.levelId !== resource.levelId) return res.status(403).json({ error: 'Accès refusé' });
+      const userId = req.userId;
+      if (userId) {
+        const user = await User.findByPk(userId);
+        if (user && user.role === 'student') {
+          if (!resource.isVisible) return res.status(404).json({ error: 'Ressource non trouvée' });
+          // Vérifier que l'étudiant a accès au cours de cette ressource
+          const course = await Course.findByPk(resource.courseId ?? undefined);
+          if (!course || user.levelId !== course.levelId) {
+            return res.status(403).json({ error: 'Accès refusé' });
+          }
+        }
       }
-    }
 
     const fileKey = extractS3KeyFromUrl(resource.fileUrl);
     const signedUrl = await getSignedDownloadUrl(fileKey);

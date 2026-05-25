@@ -79,7 +79,7 @@ router.patch('/resources/:id', authenticate, isTeacher, async (req: Request, res
     const resource = await Resource.findByPk(id);
     if (!resource) return res.status(404).json({ error: 'Ressource non trouvée' });
 
-    const course = await Course.findByPk(resource.courseId);
+    const course = await Course.findByPk(resource.courseId ?? undefined);
     if (!course || course.teacherId !== req.userId) {
       return res.status(403).json({ error: 'Non autorisé' });
     }
@@ -104,7 +104,7 @@ router.delete('/resources/:id', authenticate, isTeacher, async (req: Request, re
     const resource = await Resource.findByPk(id);
     if (!resource) return res.status(404).json({ error: 'Ressource non trouvée' });
 
-    const course = await Course.findByPk(resource.courseId);
+    const course = await Course.findByPk(resource.courseId ?? undefined);
     if (!course || course.teacherId !== req.userId) {
       return res.status(403).json({ error: 'Non autorisé' });
     }
