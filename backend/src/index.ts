@@ -33,6 +33,7 @@ app.use(express.urlencoded({ extended: true })); // Parser les formulaires
 import authRoutes from './routes/auth.routes';
 import studentRoutes from './routes/student.routes';
 import levelRoutes from './routes/level.routes';
+import courseRoutes from './routes/course.routes';
 import scheduleRoutes from './routes/schedule.routes';
 import resourceRoutes from './routes/resource.routes';
 
@@ -53,6 +54,7 @@ app.get('/', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes); // routes de gestion des étudiants
 app.use('/api/levels', levelRoutes); // routes de gestion des niveaux
+app.use('/api/courses', courseRoutes); // routes de gestion des cours
 app.use('/api/schedules', scheduleRoutes); // routes de gestion de l'horaire
 app.use('/api', resourceRoutes); // new resource endpoints under /api/levels/:id/resources and /api/resources/:id and /api/my/resources
 // TODO: Ajouter d'autres routes ici
