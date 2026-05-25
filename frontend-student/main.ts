@@ -1,3 +1,6 @@
+// Logo
+import logoUrl from './src/Logo .png';
+
 // Configuration API
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const API_URL = `${API_BASE.replace(/\/$/, '')}/api`;
@@ -248,7 +251,13 @@ async function showDashboard() {
   app.innerHTML = `
     <div class="dashboard">
       <nav class="navbar">
-        <h1> Portail Étudiant</h1>
+        <div class="navbar-brand">
+          <img src="${logoUrl}" alt="English at Yours" class="navbar-logo" />
+          <div>
+            <div class="navbar-brand-title">Portail Étudiant</div>
+            <div class="navbar-brand-sub">Espace Étudiant</div>
+          </div>
+        </div>
         <div class="navbar-right">
           <span class="user-info">${currentUser?.firstName} ${currentUser?.lastName}</span>
           <button id="btn-logout" class="btn-logout">Déconnexion</button>
@@ -374,7 +383,7 @@ function renderCourses(coursesToDisplay: Course[]) {
   if (coursesToDisplay.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-state-icon">📭</div>
+        <div class="empty-state-icon"></div>
         <h3>Aucun cours disponible</h3>
         <p>Il n'y a pas encore de cours pour ce niveau.</p>
       </div>
@@ -430,7 +439,7 @@ function renderResources(resourcesToDisplay: Resource[]) {
   if (resourcesToDisplay.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-state-icon">📭</div>
+        <div class="empty-state-icon"></div>
         <h3>Aucune ressource disponible</h3>
         <p>Il n'y a pas encore de ressources pour ce niveau.</p>
       </div>
@@ -531,7 +540,7 @@ async function viewCourse(courseId: number) {
     </div>
 
     <div class="section-header">
-      <h2 class="section-title">📖 ${course.title}</h2>
+      <h2 class="section-title"> ${course.title}</h2>
       <p class="section-subtitle">${course.description}</p>
       ${course.teacher ? `
         <div style="margin-top: 12px; color: var(--gray-600);">
@@ -541,7 +550,7 @@ async function viewCourse(courseId: number) {
     </div>
 
     <div class="section-header" style="margin-top: 48px;">
-      <h2 class="section-title">📚 Ressources du cours</h2>
+      <h2 class="section-title"> Ressources du cours</h2>
       <p class="section-subtitle">Documents et supports disponibles</p>
     </div>
     <div id="resources-container"></div>
